@@ -1,5 +1,8 @@
 name: CI/CD Pipeline
 
+# Workflow uses organization-level secrets for better security and maintainability
+# Configure these in GitHub Organization Settings > Secrets and Variables > Actions
+
 on:
   push:
     branches: [ main, develop ]
@@ -9,6 +12,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    
+    # Add permission for reading org secrets
+    permissions:
+      contents: read
+      id-token: write
     
     steps:
     - uses: actions/checkout@v3
@@ -23,25 +31,73 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Make scripts executable
-      run: chmod +x scripts/discord_notification.sh
-        
     - name: Run tests
       env:
+        # Using organization level secrets
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       run: |
         pytest --cov=src tests/
         
     - name: Discord Notification
       if: always()
       env:
+        # Using organization level webhook
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       run: |
         if [ "${{ job.status }}" = "success" ]; then
-          ./scripts/discord_notification.sh success
+          STATUS_MESSAGE="✅ Tests Passed"
+          EMBED_COLOR=3066993
         else
-          ./scripts/discord_notification.sh failure
+          STATUS_MESSAGE="❌ Tests Failed"
+          EMBED_COLOR=15158332
         fi
+        
+        COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+        AUTHOR_NAME=$(git log -1 --pretty=%an)
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        REPOSITORY="${{ github.repository }}"
+        
+        # Enhanced Discord message with more context
+        curl -H "Content-Type: application/json" -X POST $DISCORD_WEBHOOK -d '{
+          "embeds": [{
+            "title": "'"$STATUS_MESSAGE"' - '"$REPOSITORY"'",
+            "color": '"$EMBED_COLOR"',
+            "fields": [
+              {
+                "name": "Repository",
+                "value": "'"${GITHUB_REPOSITORY#*/}"'",
+                "inline": true
+              },
+              {
+                "name": "Branch",
+                "value": "'"${GITHUB_REF#refs/heads/}"'",
+                "inline": true
+              },
+              {
+                "name": "Commit",
+                "value": "'"$COMMIT_SHA"'",
+                "inline": true
+              },
+              {
+                "name": "Author",
+                "value": "'"$AUTHOR_NAME"'",
+                "inline": true
+              },
+              {
+                "name": "Workflow",
+                "value": "'"$GITHUB_WORKFLOW"'",
+                "inline": true
+              },
+              {
+                "name": "Message",
+                "value": "'"$COMMIT_MESSAGE"'",
+                "inline": false
+              }
+            ],
+            "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"
+          }]
+        }'

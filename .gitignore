@@ -54,8 +54,3 @@ logs/
 data/
 output/
 *.bak
-
-# Knowledge Base for RAG - excluding potential sensitive data
-knowledge_base/
-knowledge_base/**/*
-!knowledge_base/.gitkeep

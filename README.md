@@ -13,6 +13,7 @@ This repository contains the experimental architecture for the Darwin project, e
 - Comprehensive testing suite
 - CI/CD pipeline with automated testing
 - Discord integration for development notifications
+- AWS S3 integration for document storage
 
 ## 📋 Prerequisites
 
@@ -20,7 +21,7 @@ This repository contains the experimental architecture for the Darwin project, e
 - API keys for:
   - OpenAI
   - Anthropic
-  - AWS (for Bedrock)
+  - AWS (for Bedrock and S3)
 - Local Ollama installation (optional)
 
 ## 🛠️ Installation
@@ -75,6 +76,7 @@ The project includes a GitHub Actions pipeline that:
 - Runs automated tests
 - Generates test coverage reports
 - Sends notifications to Discord about build status
+- Uses organization-level secrets for security
 
 ## 🤝 Contributing
 
@@ -87,7 +89,8 @@ The project includes a GitHub Actions pipeline that:
 
 - Never commit API keys or sensitive data
 - Use environment variables for sensitive information
-- Store production secrets in GitHub Secrets
+- Store production secrets in GitHub Organization Secrets
+- Document storage handled securely through AWS S3
 
 ## 📝 License
 
