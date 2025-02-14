@@ -20,4 +20,4 @@ ollama==0.1.5
 
 # Additional dependencies that might be needed
 python-dotenv==1.0.0  # For environment variable management
-requests==2.31.0      # Required for API calls
+requests==2.32.2      # Required for API calls
