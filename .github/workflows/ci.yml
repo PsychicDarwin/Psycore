@@ -63,15 +63,22 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          # Run tests and save output
-          pytest --cov=src tests/ -v > pytest_output.txt 2>&1 || true
+          # Create test results directory
+          mkdir -p test-results
+          
+          # Run tests and capture output
+          pytest --cov=src tests/ -v --junitxml=test-results/junit.xml > test-results/pytest.txt 2>&1 || true
           
           # Generate coverage report
-          coverage report > coverage_report.txt
+          coverage report > test-results/coverage.txt
           
-          # Save outputs as step outputs
-          echo "test_output=$(cat pytest_output.txt)" >> $GITHUB_OUTPUT
-          echo "coverage_report=$(cat coverage_report.txt)" >> $GITHUB_OUTPUT
+          # Format the test output for GitHub Actions
+          TEST_OUTPUT=$(cat test-results/pytest.txt | sed 's/"/\\"/g' | tr '\n' ' ')
+          COVERAGE_OUTPUT=$(cat test-results/coverage.txt | sed 's/"/\\"/g' | tr '\n' ' ')
+          
+          # Save as step outputs
+          echo "test_output=$TEST_OUTPUT" >> $GITHUB_OUTPUT
+          echo "coverage_report=$COVERAGE_OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Make script executable
         run: chmod +x .github/scripts/send-test-results.sh
@@ -85,6 +92,13 @@ jobs:
             "${{ steps.run-tests.outputs.coverage_report }}" \
             "$GITHUB_REPOSITORY" \
             "${{ github.run_id }}"
+          
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: test-results/
           
       - name: Check test status
         if: steps.run-tests.outcome != 'success'
