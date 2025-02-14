@@ -4,7 +4,6 @@ Main entry point for the application.
 import os
 import logging
 from dotenv import load_dotenv
-from src.calculator.operations import add  # Added the missing import
 
 # Load .env variables only if they don't exist in system environment
 load_dotenv(override=False)
@@ -32,9 +31,6 @@ else:
 def main():
     """Run a simple example of the calculator."""
     try:
-        logger.debug("Starting calculation")
-        result = add(5, 3)
-        logger.info(f"Calculation result: 5 + 3 = {result}")
         
         if DEBUG:
             logger.debug("Debug information:")

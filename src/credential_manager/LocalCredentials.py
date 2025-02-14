@@ -5,24 +5,25 @@ from dotenv import load_dotenv
 load_dotenv(override=False)
 
 class APICredential:
-    secret_key: str
-    user_key: str | None
+    def __init__(self, secret_key: str, user_key: str | None = None):
+        self.secret_key = secret_key
+        self.user_key = user_key
 
 class LocalCredentials:
     # Static class to store credentials array
-    credentials: dict[str, APICredential] = {}
+    _credentials: dict[str, APICredential] = {}
 
     @staticmethod
     def add_credential(name: str, secret_key: str, user_key: str | None = None):
-        LocalCredentials.credentials[name] = APICredential(secret_key, user_key)
+        LocalCredentials._credentials[name] = APICredential(secret_key, user_key)
     
     @staticmethod
     def get_credential(name: str) -> APICredential:
-        return LocalCredentials.credentials[name]
+        return LocalCredentials._credentials[name]
     
     @staticmethod
     def remove_credential(name: str):
-        del LocalCredentials.credentials[name]
+        del LocalCredentials._credentials[name]
 
 
 # We load env variables and add them to the static class

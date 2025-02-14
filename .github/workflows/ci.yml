@@ -5,9 +5,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev/*,test/*, ] # We only care if a branch is labelled as (main branch, or dev/test branch)
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ] # We only care if pull requests are merged into main
 
 jobs:
   test:
@@ -39,6 +39,8 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
       run: |
         pytest --cov=src tests/
         
