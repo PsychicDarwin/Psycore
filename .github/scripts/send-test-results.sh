@@ -5,6 +5,7 @@ TEST_OUTPUT="$1"
 COVERAGE_REPORT="$2"
 REPOSITORY="$3"
 RUN_ID="$4"
+PR_TITLE="$5"
 
 # Color for test results (orange for warning)
 EMBED_COLOR=16737095
@@ -13,6 +14,7 @@ EMBED_COLOR=16737095
 AUTHOR_NAME="$(git log -1 --pretty="%aN")"
 COMMITTER_NAME="$(git log -1 --pretty="%cN")"
 COMMIT_SUBJECT="$(git log -1 --pretty="%s")"
+COMMIT_MESSAGE="$(git log -1 --pretty="%b")"
 COMMIT_SHA="$(git rev-parse --short HEAD)"
 BRANCH="${GITHUB_REF#refs/heads/}"
 
@@ -41,6 +43,13 @@ else
     TEST_DETAILS="Failed Tests:\n\`\`\`\n$FAILED_TESTS\n\`\`\`"
 fi
 
+# Format commit/PR message
+if [ -n "$PR_TITLE" ]; then
+    CHANGE_INFO="**Pull Request:** $PR_TITLE\n**Commit:** $COMMIT_SUBJECT"
+else
+    CHANGE_INFO="**Commit Message:**\n$COMMIT_SUBJECT\n$COMMIT_MESSAGE"
+fi
+
 # Get current timestamp
 TIMESTAMP=$(date --utc +%FT%TZ)
 
@@ -54,11 +63,11 @@ WEBHOOK_DATA='{
         },
         "title": "'"$TEST_STATUS"'",
         "url": "'"$ACTIONS_URL"'",
-        "description": "'"${TEST_DETAILS}"'\n\nCode Coverage: **'"${COVERAGE_PERCENT}"'%**\n\n'"$CREDITS"'",
+        "description": "'"${TEST_DETAILS}"'\n\nCode Coverage: **'"${COVERAGE_PERCENT}"'%**\n\n'"${CHANGE_INFO}"'\n\n'"$CREDITS"'",
         "fields": [
             {
                 "name": "Commit",
-                "value": "'"$COMMIT_SHA"'",
+                "value": "`'"$COMMIT_SHA"'`",
                 "inline": true
             },
             {
