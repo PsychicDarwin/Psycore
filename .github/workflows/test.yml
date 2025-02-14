@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: Run Tests
 
 on:
   push:
@@ -26,42 +26,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov
-
-      - name: Check environment variables
-        run: |
-          required_vars=(
-            "OPENAI_API_KEY"
-            "AWS_ACCESS_KEY_ID"
-            "AWS_SECRET_ACCESS_KEY"
-            "GEMINI_API_KEY"
-          )
-          
-          missing_vars=()
-          for var in "${required_vars[@]}"; do
-            if [ -z "${!var}" ]; then
-              missing_vars+=("$var")
-            fi
-          done
-          
-          if [ ${#missing_vars[@]} -ne 0 ]; then
-            echo "❌ Missing required environment variables: ${missing_vars[*]}"
-            exit 1
-          fi
-          echo "✅ All required environment variables are set"
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
+          - name: Run tests
+          env:
+            # Using organization level secrets
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+            ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+            GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    
       - name: Run tests with coverage
         id: run-tests
         continue-on-error: true
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           # Run tests and save output
           pytest --cov=psycore tests/ -v > pytest_output.txt 2>&1 || true
