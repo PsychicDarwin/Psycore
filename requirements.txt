@@ -4,8 +4,8 @@ pytest-cov==4.1.0
 
 # LangChain and core dependencies
 langchain==0.1.0
-langchain-core==0.1.10
 langchain-openai==0.0.5
+langchain-core>=0.1.16,<0.2  # Adjusted to satisfy both dependencies
 langchain-community==0.0.13
 
 # LLM Providers
