@@ -64,7 +64,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           # Run tests and save output
-          pytest --cov=psycore tests/ -v > pytest_output.txt 2>&1 || true
+          pytest --cov=src tests/ -v > pytest_output.txt 2>&1 || true
           
           # Generate coverage report
           coverage report > coverage_report.txt
