@@ -9,7 +9,7 @@ langchain-core==0.3.35
 langchain-community>=0.0.13
 langchain-google-genai<2.0.9  # Using older version to avoid conflict
 langchain-huggingface>=0.1.2
-`
+
 # LLM Providers
 openai==1.63.0
 anthropic==0.8.0
