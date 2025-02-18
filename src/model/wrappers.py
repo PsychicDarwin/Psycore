@@ -12,23 +12,23 @@ from model_catalogue import ModelType, EmbeddingType, Providers
 class ModelWrapper:
     def __init__(self, model_type: ModelType):
         self.model_type = model_type
-        match model_type.provider:
-            # Important to remember each model will need it's own input template and prior converter for additional input
-            case Providers.OPENAI:
-                credential = LocalCredentials.get_credential('OPENAI_API_KEY')
-                self.model = OpenAI(model_name=model_type.argName, api_key=credential.secret_key)
-            case Providers.BEDROCK:
-                credential = LocalCredentials.get_credential('AWS_IAM_KEY')
-                self.model = ChatBedrock(model_id=model_type.argName, aws_access_key_id=credential.user_key, aws_secret_access_key=credential.secret_key)
-            case Providers.GEMINI:
-                credential = LocalCredentials.get_credential('GEMINI_API_KEY')
-                self.model = ChatGoogleGenerativeAI(model=model_type.argName, google_api_key=credential.secret_key)
-            case Providers.OLLAMA:
-                self.model = OllamaLLM(model=model_type.argName, base_url=None)
-            case Providers.HUGGINGFACE:
-                raise NotImplementedError("Huggingface is not yet supported")
-            case _:
-                raise ValueError("Invalid provider")
+        provider = model_type.provider
+        # Important to remember each model will need its own input template and prior converter for additional input
+        if provider == Providers.OPENAI:
+            credential = LocalCredentials.get_credential('OPENAI_API_KEY')
+            self.model = OpenAI(model_name=model_type.argName, api_key=credential.secret_key)
+        elif provider == Providers.BEDROCK:
+            credential = LocalCredentials.get_credential('AWS_IAM_KEY')
+            self.model = ChatBedrock(model_id=model_type.argName, aws_access_key_id=credential.user_key, aws_secret_access_key=credential.secret_key)
+        elif provider == Providers.GEMINI:
+            credential = LocalCredentials.get_credential('GEMINI_API_KEY')
+            self.model = ChatGoogleGenerativeAI(model=model_type.argName, google_api_key=credential.secret_key)
+        elif provider == Providers.OLLAMA:
+            self.model = OllamaLLM(model=model_type.argName, base_url=None)
+        elif provider == Providers.HUGGINGFACE:
+            raise NotImplementedError("Huggingface is not yet supported")
+        else:
+            raise ValueError("Invalid provider")
             
 
 class EmbeddingWrapper:

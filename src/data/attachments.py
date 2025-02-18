@@ -20,6 +20,7 @@ class Attachment:
         self.attachment_type = attachment_type
         self.attachment_data = attachment_data
         self.needsExtraction = needsExtraction
+        self.prompt_mapping = None # This is the mapping name, that goes through prompt template, it is defined when processed by a 
         self.metadata = None
 
     def extract(self):
