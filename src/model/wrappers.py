@@ -1,13 +1,13 @@
-from langchain_openai import OpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAI, OpenAIEmbeddings, ChatOpenAI
 from langchain_community.llms.bedrock import Bedrock
 from langchain_aws import ChatBedrock
 from langchain_community.embeddings import BedrockEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
-from langchain_ollama.llms import OllamaLLM
+from langchain_ollama import ChatOllama
 from langchain_ollama.embeddings import OllamaEmbeddings
-from credential_manager.LocalCredentials import LocalCredentials
-from model_catalogue import ModelType, EmbeddingType, Providers
+from src.credential_manager.LocalCredentials import LocalCredentials
+from src.model.model_catalogue import ModelType, EmbeddingType, Providers, ModelCatalogue
 
 class ModelWrapper:
     def __init__(self, model_type: ModelType):
@@ -16,7 +16,7 @@ class ModelWrapper:
         # Important to remember each model will need its own input template and prior converter for additional input
         if provider == Providers.OPENAI:
             credential = LocalCredentials.get_credential('OPENAI_API_KEY')
-            self.model = OpenAI(model_name=model_type.argName, api_key=credential.secret_key)
+            self.model = ChatOpenAI(model_name=model_type.argName, api_key=credential.secret_key)
         elif provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
             self.model = ChatBedrock(model_id=model_type.argName, aws_access_key_id=credential.user_key, aws_secret_access_key=credential.secret_key)
@@ -24,7 +24,7 @@ class ModelWrapper:
             credential = LocalCredentials.get_credential('GEMINI_API_KEY')
             self.model = ChatGoogleGenerativeAI(model=model_type.argName, google_api_key=credential.secret_key)
         elif provider == Providers.OLLAMA:
-            self.model = OllamaLLM(model=model_type.argName, base_url=None)
+            self.model = ChatOllama(model=model_type.argName)
         elif provider == Providers.HUGGINGFACE:
             raise NotImplementedError("Huggingface is not yet supported")
         else:
@@ -50,4 +50,3 @@ class EmbeddingWrapper:
             raise NotImplementedError("Huggingface is not yet supported")
         else:
             raise ValueError("Invalid provider")
-

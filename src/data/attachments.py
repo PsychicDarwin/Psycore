@@ -4,7 +4,6 @@ from PIL import Image
 from io import BytesIO
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
 
-
 MAX_LLM_IMAGE_PIXELS = 512 
 TEMPFILE = "tempfile"
 
@@ -39,33 +38,38 @@ class Attachment:
                     self.needsExtraction = True  # Unsupported type
                     return
             except Exception as e:
-                print(f"Error extracting attachment: {e}")
                 self.needsExtraction = True  # Keep extraction status in case of failure
+                raise FailedExtraction(self, str(e))
 
     def _process_image(self):
-        with Image.open(self.attachment_data) as img:
-            img = img.convert("RGB")
-            if (MAX_LLM_IMAGE_PIXELS != None):
-                img = img.resize((MAX_LLM_IMAGE_PIXELS, MAX_LLM_IMAGE_PIXELS))
-            buffer = BytesIO()
-            img.save(buffer, format="JPEG")
-            self.attachment_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            self.metadata = {"width": img.width, "height": img.height}
+        try: 
+            with Image.open(self.attachment_data) as img:
+                img = img.convert("RGB")
+                if (MAX_LLM_IMAGE_PIXELS != None):
+                    img = img.resize((MAX_LLM_IMAGE_PIXELS, MAX_LLM_IMAGE_PIXELS))
+                buffer = BytesIO()
+                img.save(buffer, format="JPEG")
+                self.attachment_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                self.metadata = {"width": img.width, "height": img.height}
+        except Exception as e:
+            raise FailedExtraction(self, str(e))
         
     def _process_audio(self):
         # Get file type
-        file_type = self.attachment_data.split('.')[-1]
-        filepath = self.attachment_data
-        if file_type != "wav":
-            # Convert to wav
-            ffmpeg.input(self.attachment_data).output(f"{TEMPFILE}.wav").run()
-            with open(f"{TEMPFILE}.wav", "rb") as f:
-                self.attachment_data = base64.b64encode(f.read()).decode('utf-8')
-            filepath = f"{TEMPFILE}.wav"
-        # Get duration
-        duration = ffmpeg.probe(f"{filepath}")['format']['duration']
-        self.metadata = {"duration": duration}
-        pass
+        try:
+            file_type = self.attachment_data.split('.')[-1]
+            filepath = self.attachment_data
+            if file_type != "wav":
+                # Convert to wav
+                ffmpeg.input(self.attachment_data).output(f"{TEMPFILE}.wav").run()
+                with open(f"{TEMPFILE}.wav", "rb") as f:
+                    self.attachment_data = base64.b64encode(f.read()).decode('utf-8')
+                filepath = f"{TEMPFILE}.wav"
+            # Get duration
+            duration = ffmpeg.probe(f"{filepath}")['format']['duration']
+            self.metadata = {"duration": duration}
+        except Exception as e:
+            raise FailedExtraction(self, str(e))
 
     def _process_video(self):
         raise NotImplementedError("Video processing not yet implemented")
@@ -74,3 +78,41 @@ class Attachment:
     def _process_file(self):
         # This will need work for different file types, like pdfs, csvs, etc.
         pass
+
+    @staticmethod
+    def attachmentListMapping(attachments: list, attachment_constant: str = "attachment") -> dict:
+        mappings = {}
+        for i, attachment in enumerate(attachments):
+            attachment.prompt_mapping = f"{attachment_constant}{i}"
+            mappings[attachment.prompt_mapping] = attachment.attachment_data
+        return mappings
+
+
+    @staticmethod
+    def extractAttachmentList(attachments: list):
+        i = 0
+        while i < len(attachments):
+            attachment = attachments[i]
+            try:
+                attachment.extract()
+            except FailedExtraction:
+                # If we can't extract the attachment, remove it from the list as we can't use it
+                attachments.pop(i)
+                continue 
+            # This shouldn't falsely trigger as continue prevents it from being called if failed extraction
+            if attachment.needsExtraction:
+                attachments.pop(i)
+            else:
+                i += 1
+        return attachments
+    
+
+class FailedExtraction(Exception):
+    def __init__(self, attachment: Attachment, message: str):
+        super().__init__(f"""
+Failed to extract attachment
+Attachment type: {attachment.attachment_type.name}
+Error: {message}
+        """)
+        self.attachment = attachment
+        

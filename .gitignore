@@ -22,6 +22,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+private_testing
+private_testing/
 
 # Virtual Environment
 venv/

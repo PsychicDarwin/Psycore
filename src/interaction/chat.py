@@ -1,0 +1,1 @@
+# This class file is for Long/Prolonged Chat with the LLM taking advantage of the HumanMessage class, where a chat is invoked with multiple messages
