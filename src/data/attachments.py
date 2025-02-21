@@ -14,6 +14,17 @@ class AttachmentTypes(Enum):
     VIDEO = 3
     FILE =  4
 
+    @staticmethod
+    def from_filename(filename: str) -> 'AttachmentTypes':
+        if filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png"):
+            return AttachmentTypes.IMAGE
+        elif filename.endswith(".wav") or filename.endswith(".mp3") or filename.endswith(".flac"):
+            return AttachmentTypes.AUDIO
+        elif filename.endswith(".mp4") or filename.endswith(".avi") or filename.endswith(".mov"):
+            return AttachmentTypes.VIDEO
+        else:
+            return AttachmentTypes.FILE
+        
 class Attachment:
     def __init__(self, attachment_type: AttachmentTypes, attachment_data: str, needsExtraction: bool = False):
         self.attachment_type = attachment_type
@@ -105,6 +116,7 @@ class Attachment:
             else:
                 i += 1
         return attachments
+
     
 
 class FailedExtraction(Exception):
@@ -116,3 +128,4 @@ Error: {message}
         """)
         self.attachment = attachment
         
+
