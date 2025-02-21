@@ -31,3 +31,4 @@ class LocalCredentials:
 LocalCredentials.add_credential('OPENAI_API_KEY', os.getenv('OPENAI_API_KEY'))
 LocalCredentials.add_credential('AWS_IAM_KEY', os.getenv('AWS_SECRET_ACCESS_KEY'), os.getenv('AWS_ACCESS_KEY_ID'))
 LocalCredentials.add_credential('GEMINI_API_KEY', os.getenv('GEMINI_API_KEY'))
+LocalCredentials.add_credential('XAI_API_KEY', os.getenv('XAI_API_KEY'))

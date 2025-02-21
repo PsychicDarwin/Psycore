@@ -2,11 +2,13 @@
 from enum import Enum
 
 class Providers(Enum):
-    OLLAMA = 1
-    OPENAI = 2
-    BEDROCK = 3
-    GEMINI = 4
+    OPENAI = 1
+    BEDROCK = 2
+    GEMINI = 3
+    XAI= 4
     HUGGINGFACE = 5
+    OLLAMA = 6
+    
 
 # We create a model type class that allows for easy switching between models and providers like ollama or APIs
 class ModelType:
@@ -49,6 +51,8 @@ class ModelCatalogue:
         "gemini_1.5_flash" : ModelType('gemini-1.5-flash',True,Providers.GEMINI,1048576,8192,"gemini"), # No MLLM output but can take multimodal input
         "gemini_1.5_8b_flash": ModelType('gemini-1.5-flash-8b',True,Providers.GEMINI,1048576,8192,"gemini"), # No MLLM output but can take multimodal input
         "gemini_1.5_pro" : ModelType('gemini-1.5-pro',True,Providers.GEMINI,2097152,8192,"gemini"), # No MLLM output but can take multimodal input
+        "grok_2_vision" : ModelType("grok-2-vision-1212",True, Providers.XAI,32768,8192,"grok"),
+        "grok_2_text" : ModelType("grok-2-1212",False, Providers.XAI,131072,8192,"grok"),
         "deepseek_1.5b_r1" : LocalModelType('deepseek-r1:1.5b', False, Providers.OLLAMA,128000,32768,1.1,"deepseek"),
         "deepseek_7b_r1" : LocalModelType('deepseek-r1:7b', False, Providers.OLLAMA,128000,32768,4.7,"deepseek"),
         "deepseek_8b_r1" : LocalModelType('deepseek-r1:8b', False, Providers.OLLAMA,128000,32768,4.9,"deepseek"),

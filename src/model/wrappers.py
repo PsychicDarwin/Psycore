@@ -2,18 +2,19 @@ from langchain_openai import OpenAI, OpenAIEmbeddings, ChatOpenAI
 from langchain_community.llms.bedrock import Bedrock
 from langchain_aws import ChatBedrock
 from langchain_community.embeddings import BedrockEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAI
 from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
-from langchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama, OllamaLLM
 from langchain_ollama.embeddings import OllamaEmbeddings
 from src.credential_manager.LocalCredentials import LocalCredentials
 from src.model.model_catalogue import ModelType, EmbeddingType, Providers, ModelCatalogue
+from langchain_xai import ChatXAI
 
-class ModelWrapper:
+
+class ChatModelWrapper:
     def __init__(self, model_type: ModelType):
         self.model_type = model_type
         provider = model_type.provider
-        # Important to remember each model will need its own input template and prior converter for additional input
         if provider == Providers.OPENAI:
             credential = LocalCredentials.get_credential('OPENAI_API_KEY')
             self.model = ChatOpenAI(model_name=model_type.argName, api_key=credential.secret_key)
@@ -25,11 +26,39 @@ class ModelWrapper:
             self.model = ChatGoogleGenerativeAI(model=model_type.argName, google_api_key=credential.secret_key)
         elif provider == Providers.OLLAMA:
             self.model = ChatOllama(model=model_type.argName)
+        elif provider == Providers.XAI:
+            credential = LocalCredentials.get_credential('XAI_API_KEY')
+            self.model = ChatXAI(model=model_type.argName,api_key=credential.secret_key)
         elif provider == Providers.HUGGINGFACE:
             raise NotImplementedError("Huggingface is not yet supported")
         else:
             raise ValueError("Invalid provider")
-            
+
+# This is more for integration with node4j knowledge graphs
+class BaseModelWrapper:
+    def __init__(self, model_type: ModelType):
+        self.model_type = model_type
+        provider = model_type.provider
+        # Some models may break as they may require chat specific APIs like ChatGPT latest
+        if provider == Providers.OPENAI:
+            credential = LocalCredentials.get_credential('OPENAI_API_KEY')
+            self.model = OpenAI(model_name=model_type.argName, api_key=credential.secret_key)
+        elif provider == Providers.BEDROCK:
+            credential = LocalCredentials.get_credential('AWS_IAM_KEY')
+            self.model = Bedrock(model_id=model_type.argName, aws_access_key_id=credential.user_key, aws_secret_access_key=credential.secret_key)
+        elif provider == Providers.GEMINI:
+            credential = LocalCredentials.get_credential('GEMINI_API_KEY')
+            self.model = GoogleGenerativeAI(model=model_type.argName, google_api_key=credential.secret_key)
+        elif provider == Providers.OLLAMA:
+            self.model = OllamaLLM(model=model_type.argName)
+        elif provider == Providers.XAI:
+            credential = LocalCredentials.get_credential('XAI_API_KEY')
+            # XAI only has chat models
+            self.model = ChatXAI(model=model_type.argName,api_key=credential.secret_key)
+        elif provider == Providers.HUGGINGFACE:
+            raise NotImplementedError("Huggingface is not yet supported")
+        else:
+            raise ValueError("Invalid provider")
 
 class EmbeddingWrapper:
     def __init__(self, embedding_type: EmbeddingType):

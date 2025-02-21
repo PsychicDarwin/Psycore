@@ -9,11 +9,12 @@ from src.model.model_catalogue import (
 
 def test_providers_enum():
     """Test that all providers are correctly defined in the enum."""
-    assert Providers.OLLAMA.value == 1
-    assert Providers.OPENAI.value == 2
-    assert Providers.BEDROCK.value == 3
-    assert Providers.GEMINI.value == 4
+    assert Providers.OPENAI.value == 1
+    assert Providers.BEDROCK.value == 2
+    assert Providers.GEMINI.value == 3
+    assert Providers.XAI.value == 4
     assert Providers.HUGGINGFACE.value == 5
+    assert Providers.OLLAMA.value == 6
 
 def test_model_type_creation():
     """Test creation of basic ModelType instances."""

@@ -1,6 +1,6 @@
 # This class file is for Single Prompt -> Single Response chat with the LLM taking advantage of the HumanMessage class, where a chat is invoked with a single message
 from langchain_core.messages import HumanMessage, SystemMessage
-from src.model.wrappers import ModelWrapper, EmbeddingWrapper
+from src.model.wrappers import ChatModelWrapper, EmbeddingWrapper
 from src.model.model_catalogue import ModelType, EmbeddingType, Providers, ModelCatalogue
 from src.data.attachments import AttachmentTypes, Attachment
 from src.data.model_format_exception import ModelFormatException
@@ -10,7 +10,7 @@ from json import JSONEncoder, JSONDecoder
 from typing import Tuple
 
 class ChatMessageGenerator:
-    def __init__(self, model: ModelWrapper,system_prompt : str):
+    def __init__(self, model: ChatModelWrapper,system_prompt : str):
         self.model = model
         self.system_prompt = system_prompt
         self.chat = [("system", system_prompt)]
@@ -20,8 +20,7 @@ class ChatMessageGenerator:
         model_type = self.model.model_type
         modality = model_type.multiModal and (attachments is not None and len(attachments) > 0)
         if modality:
-            if model_type.provider in (Providers.OPENAI, Providers.BEDROCK, Providers.GEMINI,Providers.OLLAMA):
-                return ("user", ChatMessageGenerator.provider_multimodal_generator(model_type, attachments))
+            return ("user", ChatMessageGenerator.provider_multimodal_generator(model_type, attachments))
         if not modality:
             return ("user", "{prompt}")
         
