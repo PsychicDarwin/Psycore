@@ -20,6 +20,7 @@ class ChatProcess(ProcessFlow):
         # {
         #     "attachments" : list, (list of strings)
         #     "prompt" : str,
+        #     "context": str, 
         #     "append" : bool   # Decides whether to append the response and original message to the chat
         # }
 
@@ -37,8 +38,11 @@ class ChatProcess(ProcessFlow):
 
 
         chain_input = Attachment.attachmentListMapping(attachment_objects)
+        
+        # We put context before prompt the prompt, so it doesn't confuse the model
+        if data.get("context",None) is not None:
+            chain_input.update({"prompt" : data["context"]})
         chain_input.update({"prompt" : data["prompt"], })
-
 
         output = self.chat(chain_input)
 
