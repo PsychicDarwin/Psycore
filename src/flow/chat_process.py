@@ -15,7 +15,7 @@ class ChatProcess(ProcessFlow):
         ), next)
         
 
-    def run(self,data : dict) -> dict:
+    def run(self,data : dict, chain_memory = {}) -> dict:
         # When running a chat process we expect data in the form
         # {
         #     "attachments" : list, (list of strings)
@@ -53,9 +53,9 @@ class ChatProcess(ProcessFlow):
             # Add self.chat output from earlier to chat as system message
             self.runner.chat.append(("ai",output.content)) 
         
-        
+        chain_memory.update({"chat_output" : output.content, "prompt" : data["prompt"],"attachments" : attachments})
         if self.next is not None:
-            return self.next.run(output)
+            return self.next.run(output,chain_memory)
         return output
     
 

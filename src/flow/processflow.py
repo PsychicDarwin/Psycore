@@ -8,8 +8,9 @@ class ProcessFlow(ABC):
     # This will be overridden to devise our own chain operations like langchain
     # But in our custom implementation
     @abstractmethod
-    def run(self, data: dict) -> dict:
+    def run(self, data: dict, chain_memory = {}) -> dict:
         # This is just a simple chain invocation, so data can be passed between a series of processes
+        chain_memory.update(data)
         if self.next is not None:
             return self.next.run(data)
         return data
