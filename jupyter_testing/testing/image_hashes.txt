@@ -1,0 +1,56 @@
+Filename, Hash (SHA-256), Page Number, Image Index
+output_image_0_0.png, 2fc0f3e6e61d3f72f5e80a467fe7afbb8006cac0bb6e57c406e502a9a4a0d34c, 1, 0
+output_image_1_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 2, 0
+output_image_2_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 3, 0 (DUPLICATE)
+output_image_3_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 4, 0 (DUPLICATE)
+output_image_4_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 5, 0 (DUPLICATE)
+output_image_4_1.png, 06232e672743168b646e2fce9c10bd1258149783bd058990558101b80882008b, 5, 1
+output_image_4_2.png, ee4f073950de5a4a7dc59453854729956ce170e597cb76352403c12866d34055, 5, 2
+output_image_5_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 6, 0 (DUPLICATE)
+output_image_6_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 7, 0 (DUPLICATE)
+output_image_7_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 8, 0 (DUPLICATE)
+output_image_8_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 9, 0 (DUPLICATE)
+output_image_9_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 10, 0 (DUPLICATE)
+output_image_10_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 11, 0 (DUPLICATE)
+output_image_11_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 12, 0 (DUPLICATE)
+output_image_12_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 13, 0 (DUPLICATE)
+output_image_13_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 14, 0 (DUPLICATE)
+output_image_14_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 15, 0 (DUPLICATE)
+output_image_15_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 16, 0 (DUPLICATE)
+output_image_16_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 17, 0 (DUPLICATE)
+output_image_17_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 18, 0 (DUPLICATE)
+output_image_18_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 19, 0 (DUPLICATE)
+output_image_19_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 20, 0 (DUPLICATE)
+output_image_20_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 21, 0 (DUPLICATE)
+output_image_21_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 22, 0 (DUPLICATE)
+output_image_22_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 23, 0 (DUPLICATE)
+output_image_22_1.png, 6d64452118554d8a4ec7b9540113d609eea836b28aaaa279690d354a0c8e47e7, 23, 1
+output_image_23_0.png, 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7, 24, 0 (DUPLICATE)
+
+
+Duplicate Images Summary:
+
+Hash 7094b2ae9a1d9efd83b16d0d807eac546b5ec7ad4131afa5f4d002e3af83f7c7 appears in:
+  - output_image_1_0.png
+  - output_image_2_0.png
+  - output_image_3_0.png
+  - output_image_4_0.png
+  - output_image_5_0.png
+  - output_image_6_0.png
+  - output_image_7_0.png
+  - output_image_8_0.png
+  - output_image_9_0.png
+  - output_image_10_0.png
+  - output_image_11_0.png
+  - output_image_12_0.png
+  - output_image_13_0.png
+  - output_image_14_0.png
+  - output_image_15_0.png
+  - output_image_16_0.png
+  - output_image_17_0.png
+  - output_image_18_0.png
+  - output_image_19_0.png
+  - output_image_20_0.png
+  - output_image_21_0.png
+  - output_image_22_0.png
+  - output_image_23_0.png

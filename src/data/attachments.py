@@ -2,6 +2,7 @@ from enum import Enum
 import base64
 from PIL import Image
 from io import BytesIO
+from pdf2image import convert_from_path
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
 
 MAX_LLM_IMAGE_PIXELS = 512 
