@@ -117,7 +117,12 @@ class Attachment:
                 i += 1
         return attachments
 
-    
+
+class S3Attachment(Attachment):
+    def __init__(self, attachment_type: AttachmentTypes, attachment_data: str, needsExtraction: bool = False, s3_key: str = None):
+        super().__init__(attachment_type, attachment_data, needsExtraction)
+        self.s3_key = s3_key
+
 
 class FailedExtraction(Exception):
     def __init__(self, attachment: Attachment, message: str):
