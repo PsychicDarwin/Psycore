@@ -26,6 +26,8 @@ ollama>=0.4.4,<1
 imageio[ffmpeg]==2.37.0
 pillow==11.1.0
 ffmpeg==1.4.0
+pdf2image==1.17.0
+PyMuPDF==1.25.3
 
 # Additional dependencies that might be needed
 python-dotenv==1.0.0  # For environment variable management

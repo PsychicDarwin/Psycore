@@ -1,8 +1,9 @@
 from enum import Enum
 import base64
-from PIL import Image
+from PIL import Image,ImageFile
 from io import BytesIO
 from pdf2image import convert_from_path
+from src.data.pdf_extractor import PDFExtractor
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
 
 MAX_LLM_IMAGE_PIXELS = 512 
@@ -33,6 +34,7 @@ class Attachment:
         self.needsExtraction = needsExtraction
         self.prompt_mapping = None # This is the mapping name, that goes through prompt template, it is defined when processed by a 
         self.metadata = None
+        self.extra_attachments = None
 
     def extract(self):
         if self.needsExtraction:
@@ -52,19 +54,29 @@ class Attachment:
             except Exception as e:
                 self.needsExtraction = True  # Keep extraction status in case of failure
                 raise FailedExtraction(self, str(e))
+            
+    def pop_extra_attachments(self):
+        if self.extra_attachments is None:
+            return []
+        attachments = self.extra_attachments
+        self.extra_attachments = None
+        return attachments
+        
 
     def _process_image(self):
         try: 
             with Image.open(self.attachment_data) as img:
-                img = img.convert("RGB")
-                if (MAX_LLM_IMAGE_PIXELS != None):
-                    img = img.resize((MAX_LLM_IMAGE_PIXELS, MAX_LLM_IMAGE_PIXELS))
-                buffer = BytesIO()
-                img.save(buffer, format="JPEG")
-                self.attachment_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                self.metadata = {"width": img.width, "height": img.height}
+                self.attachment_data, self.metadata = self.imageFileToBase64(img)
         except Exception as e:
             raise FailedExtraction(self, str(e))
+        
+    def imageFileToBase64(self, image: ImageFile) -> str:
+        img = image.convert("RGB")
+        if (MAX_LLM_IMAGE_PIXELS != None):
+            img = img.resize((MAX_LLM_IMAGE_PIXELS, MAX_LLM_IMAGE_PIXELS))
+        buffer = BytesIO()
+        img.save(buffer, format="JPEG")
+        return (base64.b64encode(buffer.getvalue()).decode('utf-8'), {"width": img.width, "height": img.height})
         
     def _process_audio(self):
         # Get file type
@@ -88,7 +100,7 @@ class Attachment:
         
 
     def _process_file(self):
-        # This will need work for different file types, like pdfs, csvs, etc.
+        extractor = PDFExtractor(self)
         pass
 
     @staticmethod
@@ -116,6 +128,12 @@ class Attachment:
                 attachments.pop(i)
             else:
                 i += 1
+        i = 0
+        while i < len(attachments):
+            extra_attachments = attachments[i].pop_extra_attachments()
+            if extra_attachments:
+                attachments.extend(extra_attachments)
+            i += 1
         return attachments
 
 
