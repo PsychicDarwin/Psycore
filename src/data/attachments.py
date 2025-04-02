@@ -1,32 +1,11 @@
 from enum import Enum
 import base64
-from PIL import Image,ImageFile
+from PIL import Image, ImageFile
 from io import BytesIO
 from pdf2image import convert_from_path
-from src.data.pdf_extractor import PDFExtractor
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
+from src.data.common_types import AttachmentTypes, MAX_LLM_IMAGE_PIXELS, TEMPFILE
 
-MAX_LLM_IMAGE_PIXELS = 512 
-TEMPFILE = "tempfile"
-
-
-class AttachmentTypes(Enum):
-    IMAGE = 1
-    AUDIO = 2
-    VIDEO = 3
-    FILE =  4
-
-    @staticmethod
-    def from_filename(filename: str) -> 'AttachmentTypes':
-        if filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png"):
-            return AttachmentTypes.IMAGE
-        elif filename.endswith(".wav") or filename.endswith(".mp3") or filename.endswith(".flac"):
-            return AttachmentTypes.AUDIO
-        elif filename.endswith(".mp4") or filename.endswith(".avi") or filename.endswith(".mov"):
-            return AttachmentTypes.VIDEO
-        else:
-            return AttachmentTypes.FILE
-        
 class Attachment:
     def __init__(self, attachment_type: AttachmentTypes, attachment_data: str, needsExtraction: bool = False):
         self.attachment_type = attachment_type
@@ -62,7 +41,6 @@ class Attachment:
         self.extra_attachments = None
         return attachments
         
-
     def _process_image(self):
         try: 
             with Image.open(self.attachment_data) as img:
@@ -98,10 +76,11 @@ class Attachment:
     def _process_video(self):
         raise NotImplementedError("Video processing not yet implemented")
         
-
     def _process_file(self):
+        # Import here to break circular dependency
+        from src.data.pdf_extractor import PDFExtractor
         extractor = PDFExtractor(self)
-        pass
+        extractor.process_pages()
 
     @staticmethod
     def attachmentListMapping(attachments: list, attachment_constant: str = "attachment") -> dict:
@@ -110,7 +89,6 @@ class Attachment:
             attachment.prompt_mapping = f"{attachment_constant}{i}"
             mappings[attachment.prompt_mapping] = attachment.attachment_data
         return mappings
-
 
     @staticmethod
     def extractAttachmentList(attachments: list):
@@ -151,5 +129,3 @@ Attachment type: {attachment.attachment_type.name}
 Error: {message}
         """)
         self.attachment = attachment
-        
-

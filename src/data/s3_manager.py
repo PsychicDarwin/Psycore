@@ -4,7 +4,7 @@ S3 Manager for handling file operations with AWS S3.
 import os
 import logging
 from typing import List, Dict, Any, Optional
-from src.data.attachments import Attachment, S3Attachment, AttachmentTypes
+from src.data.common_types import AttachmentTypes
 import boto3
 from botocore.exceptions import ClientError
 
@@ -157,8 +157,7 @@ class S3Manager:
         logger.info(f"Downloaded {len(downloaded_files)} files to {local_dir}")
         return downloaded_files
     
-
-    def s3_process_file(self, key: str, local_path: str) -> S3Attachment:
+    def s3_process_file(self, key: str, local_path: str):
         """
         Process a file from S3 and return an S3Attachment object.
         
@@ -169,6 +168,9 @@ class S3Manager:
         Returns:
             S3Attachment object
         """
+        # Import here to break circular dependency
+        from src.data.attachments import S3Attachment
+        
         if self.download_file(key, local_path):
             attachment = S3Attachment(AttachmentTypes.from_filename(local_path), local_path, True, key)
             attachment.extract()
@@ -179,7 +181,6 @@ class S3Manager:
             return attachment
         else:
             raise Exception(f"Failed to download file {key} from S3")
-    
     
     def _get_content_type(self, file_path: str) -> Optional[str]:
         """
