@@ -52,3 +52,4 @@ class PDFExtractor():
         self.attachment.extra_attachments = list(self.image_hashes.values())
         # Extract all text from the PDF
         self.attachment.attachment_data = text
+        
