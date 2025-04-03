@@ -2,9 +2,11 @@ from enum import Enum
 import base64
 from PIL import Image, ImageFile
 from io import BytesIO
+import os
+import tempfile
 
 MAX_LLM_IMAGE_PIXELS = 512 
-TEMPFILE = "tempfile"
+TEMPFILE = os.path.join(tempfile.gettempdir(), "psycore_temp")
 
 class AttachmentTypes(Enum):
     IMAGE = 1

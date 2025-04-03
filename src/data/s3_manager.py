@@ -172,7 +172,7 @@ class S3Manager:
         from src.data.attachments import S3Attachment
         
         if self.download_file(key, local_path):
-            attachment = S3Attachment(AttachmentTypes.from_filename(local_path), local_path, True, key)
+            attachment = S3Attachment(AttachmentTypes.from_filename(local_path), local_path, True, key, self.bucket_name)
             attachment.extract()
             if attachment.needsExtraction:
                 raise Exception(f"Failed to process file {key} from S3")

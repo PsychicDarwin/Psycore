@@ -5,6 +5,8 @@ from io import BytesIO
 from pdf2image import convert_from_path
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
 from src.data.common_types import AttachmentTypes, MAX_LLM_IMAGE_PIXELS, TEMPFILE
+import os
+from src.data.s3_manager import S3Manager
 
 class Attachment:
     def __init__(self, attachment_type: AttachmentTypes, attachment_data: str, needsExtraction: bool = False):
@@ -57,7 +59,7 @@ class Attachment:
         return (base64.b64encode(buffer.getvalue()).decode('utf-8'), {"width": img.width, "height": img.height})
         
     def _process_audio(self):
-        # Get file type
+        # Gets file type
         try:
             file_type = self.attachment_data.split('.')[-1]
             filepath = self.attachment_data
@@ -116,9 +118,60 @@ class Attachment:
 
 
 class S3Attachment(Attachment):
-    def __init__(self, attachment_type: AttachmentTypes, attachment_data: str, needsExtraction: bool = False, s3_key: str = None):
-        super().__init__(attachment_type, attachment_data, needsExtraction)
+    
+    def __init__(self, attachment_data: str, needsExtraction: bool = False, s3_key: str = None, bucket_name: str = None, attachment_type: AttachmentTypes = None,):
         self.s3_key = s3_key
+        self.bucket_name = bucket_name
+        self.temp_file_path = None
+        
+        # If this is an S3 file, download it temporarily
+        if s3_key and bucket_name:
+            self._download_from_s3()
+        else:
+            self.temp_file_path = attachment_data
+
+        # Determines the attachment type from the file path
+        if attachment_type is None:
+            self.attachment_type = AttachmentTypes.from_filename(self.temp_file_path)
+        else:
+            self.attachment_type = attachment_type
+            
+        # Initializes a parent class with the downloaded file path
+        super().__init__(attachment_type, self.temp_file_path, needsExtraction)
+        
+    def _download_from_s3(self):
+        """Download the file from S3 to a temporary location"""
+        try:
+            # Creates temporary directory if it doesn't exist
+            os.makedirs(os.path.dirname(TEMPFILE), exist_ok=True)
+            
+            # Generates a unique temporary file path
+            self.temp_file_path = f"{TEMPFILE}_{os.path.basename(self.s3_key)}"
+            
+            # Download the file
+            s3_manager = S3Manager(bucket_name=self.bucket_name)
+            if not s3_manager.download_file(self.s3_key, self.temp_file_path):
+                raise FailedExtraction(self, f"Failed to download file {self.s3_key} from S3")
+                
+            # Verifies that the file exists and is readable
+            if not os.path.exists(self.temp_file_path):
+                raise FailedExtraction(self, f"Downloaded file {self.temp_file_path} does not exist")
+                
+        except Exception as e:
+            if self.temp_file_path and os.path.exists(self.temp_file_path):
+                try:
+                    os.remove(self.temp_file_path)
+                except:
+                    pass
+            raise FailedExtraction(self, f"Failed to download file from S3: {str(e)}")
+            
+    def cleanup(self):
+        """Clean up temporary files"""
+        if self.temp_file_path and os.path.exists(self.temp_file_path):
+            try:
+                os.remove(self.temp_file_path)
+            except Exception as e:
+                print(f"Warning: Failed to clean up temporary file {self.temp_file_path}: {str(e)}")
 
 
 class FailedExtraction(Exception):
