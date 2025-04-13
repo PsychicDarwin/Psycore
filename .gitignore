@@ -54,4 +54,7 @@ htmlcov/
 # Project specific
 logs/
 output/
-*.bak
+
+README_RAG_KG.md
+jupyter_testing/RAG_With_Knowledge_graph(Neo4j).ipynb
+requirements_rag_kg.txt
