@@ -17,7 +17,12 @@ class ChatModelWrapper:
         provider = model_type.provider
         if provider == Providers.OPENAI:
             credential = LocalCredentials.get_credential('OPENAI_API_KEY')
-            self.model = ChatOpenAI(model_name=model_type.argName, api_key=credential.secret_key)
+            self.model = ChatOpenAI(
+                model_name=model_type.argName,
+                api_key=credential.secret_key,
+                temperature=0,
+                # cache=None  # Explicitly set cache to None to avoid BaseCache issues
+            )
         elif provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
             self.model = ChatBedrock(model_id=model_type.argName, aws_access_key_id=credential.user_key, aws_secret_access_key=credential.secret_key)
@@ -42,7 +47,12 @@ class BaseModelWrapper:
         # Some models may break as they may require chat specific APIs like ChatGPT latest
         if provider == Providers.OPENAI:
             credential = LocalCredentials.get_credential('OPENAI_API_KEY')
-            self.model = OpenAI(model_name=model_type.argName, api_key=credential.secret_key)
+            self.model = OpenAI(
+                model_name=model_type.argName, 
+                api_key=credential.secret_key,
+                temperature=0,
+                # cache=None  # Explicitly set cache to None to avoid BaseCache issues
+            )
         elif provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
             self.model = Bedrock(model_id=model_type.argName, aws_access_key_id=credential.user_key, aws_secret_access_key=credential.secret_key)
@@ -65,7 +75,11 @@ class EmbeddingWrapper:
         self.embedding_type = embedding_type
         if embedding_type.provider == Providers.OPENAI:
             credential = LocalCredentials.get_credential('OPENAI_API_KEY')
-            self.embedding = OpenAIEmbeddings(model=embedding_type.model, api_key=credential.secret_key)
+            self.embedding = OpenAIEmbeddings(
+                model=embedding_type.model, 
+                api_key=credential.secret_key,
+                # cache=None  # Explicitly set cache to None to avoid BaseCache issues
+            )
         elif embedding_type.provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
             raise NotImplementedError("Bedrock is not yet supported")
