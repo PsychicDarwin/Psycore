@@ -21,7 +21,6 @@ class ChatModelWrapper:
                 model_name=model_type.argName,
                 api_key=credential.secret_key,
                 temperature=0,
-                # cache=None  # Explicitly set cache to None to avoid BaseCache issues
             )
         elif provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
@@ -51,7 +50,6 @@ class BaseModelWrapper:
                 model_name=model_type.argName, 
                 api_key=credential.secret_key,
                 temperature=0,
-                # cache=None  # Explicitly set cache to None to avoid BaseCache issues
             )
         elif provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
@@ -78,7 +76,6 @@ class EmbeddingWrapper:
             self.embedding = OpenAIEmbeddings(
                 model=embedding_type.model, 
                 api_key=credential.secret_key,
-                # cache=None  # Explicitly set cache to None to avoid BaseCache issues
             )
         elif embedding_type.provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')
