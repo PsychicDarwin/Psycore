@@ -24,7 +24,7 @@ wheels/
 *.egg
 private_testing
 private_testing/
-
+jupyter_testing/processed_pdfs
 # Virtual Environment
 venv/
 env/
