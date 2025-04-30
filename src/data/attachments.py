@@ -4,6 +4,13 @@ from PIL import Image
 from io import BytesIO
 from pdf2image import convert_from_path
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
+import json
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+import networkx as nx
+import matplotlib.pyplot as plt
+
 
 MAX_LLM_IMAGE_PIXELS = 512 
 TEMPFILE = "tempfile"
@@ -65,6 +72,38 @@ class Attachment:
                 self.metadata = {"width": img.width, "height": img.height}
         except Exception as e:
             raise FailedExtraction(self, str(e))
+    
+
+    def _process_graph(prompt):
+        # Ensure necessary NLTK downloads
+
+        """Convert a string into a JSON-based knowledge graph."""
+        words = word_tokenize(prompt.lower())
+        stop_words = set(stopwords.words("english"))
+
+        # Filter meaningful words
+        key_words = [word for word in words if word.isalnum() and word not in stop_words]
+
+        # Construct graph data structure
+        graph = {
+            "nodes": [{"id": word} for word in key_words],
+            "edges": [{"source": key_words[i], "target": key_words[i + 1]} for i in range(len(key_words) - 1)]
+        }
+
+            # Create graph
+        visual_graph = nx.Graph()
+        
+        # Add words as nodes
+        for word in key_words:
+            visual_graph.add_node(word)
+
+        # Connect words based on proximity
+        for i in range(len(key_words) - 1):
+            visual_graph.add_edge(key_words[i], key_words[i + 1])
+        
+        print(prompt)
+        return json.dumps(graph, indent=4), visual_graph
+    
         
     def _process_audio(self):
         # Get file type
