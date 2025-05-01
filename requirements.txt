@@ -34,3 +34,5 @@ requests==2.32.2      # Required for API calls
 nltk
 nltk_tokenize
 nltk_corpus
+
+openai-whisper

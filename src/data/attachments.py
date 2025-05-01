@@ -10,6 +10,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import networkx as nx
 import matplotlib.pyplot as plt
+import whisper
 
 
 MAX_LLM_IMAGE_PIXELS = 512 
@@ -121,6 +122,25 @@ class Attachment:
             self.metadata = {"duration": duration}
         except Exception as e:
             raise FailedExtraction(self, str(e))
+    
+    def _convert_audio_to_text(self):
+        """Transcribes audio to text using OpenAI's Whisper."""
+        if self.attachment_type != AttachmentTypes.AUDIO:
+            raise ValueError("Audio-to-text conversion is only supported for audio attachments.")
+        
+        try:
+            audio_filepath = self.attachment_data  # File path to the audio
+
+            # Load the Whisper model
+            model = whisper.load_model("tiny")  # Use "medium" or "large" for better accuracy
+
+            # Transcribe audio
+            result = model.transcribe(audio_filepath)
+
+            self.metadata = {"transcription": result["text"]}  # Store the transcription in metadata
+            return result["text"]
+        except Exception as e:
+            raise Exception(f"Failed to transcribe audio: {e}")
 
     def _process_video(self):
         raise NotImplementedError("Video processing not yet implemented")
