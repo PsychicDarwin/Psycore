@@ -10,6 +10,12 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import networkx as nx
 import matplotlib.pyplot as plt
+from base64 import b64decode
+# from PIL import Image
+import io
+from src.model.model_catalogue import ModelCatalogue
+from src.model.wrappers import ChatModelWrapper
+import whisper
 
 
 MAX_LLM_IMAGE_PIXELS = 512 
@@ -121,6 +127,27 @@ class Attachment:
             self.metadata = {"duration": duration}
         except Exception as e:
             raise FailedExtraction(self, str(e))
+    
+
+    def _convert_audio_to_text(self):
+        """Transcribes audio to text using OpenAI's Whisper."""
+        if self.attachment_type != AttachmentTypes.AUDIO:
+            raise ValueError("Audio-to-text conversion is only supported for audio attachments.")
+        
+        try:
+            audio_filepath = self.attachment_data  # File path to the audio
+
+            # Load the Whisper model
+            model = whisper.load_model("small")  # Use "medium" or "large" for better accuracy
+
+            # Transcribe audio
+            result = model.transcribe(audio_filepath)
+
+            self.metadata = {"transcription": result["text"]}  # Store the transcription in metadata
+            return result["text"]
+        except Exception as e:
+            raise Exception(f"Failed to transcribe audio: {e}")
+
 
     def _process_video(self):
         raise NotImplementedError("Video processing not yet implemented")
@@ -129,6 +156,52 @@ class Attachment:
     def _process_file(self):
         # This will need work for different file types, like pdfs, csvs, etc.
         pass
+    
+    def _text_summary(self):
+        if self.attachment_type != AttachmentTypes.IMAGE:
+            raise ValueError("Text summary is only supported for image attachments.")
+        
+        if self.needsExtraction:
+            raise Exception("Image must be extracted before generating a summary.")
+
+        try:
+            from src.model.model_catalogue import ModelCatalogue
+            from src.model.wrappers import ChatModelWrapper
+
+            # Using base64 image string already stored during .extract()
+            base64_jpeg = self.attachment_data
+            image_data_url = f"data:image/jpeg;base64,{base64_jpeg}"
+
+            model_type = ModelCatalogue._models.get("oai_4o_latest")
+            if not model_type:
+                raise ValueError("GPT-4o model not found in ModelCatalogue")
+            model_wrapper = ChatModelWrapper(model_type)
+
+            # Composing prompt
+            message = {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_data_url
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": "What is happening in this image?"
+                    }
+                ]
+            }
+
+            # Invoking model
+            response = model_wrapper.model.invoke([message])
+            return response.content if hasattr(response, "content") else str(response)
+
+        except Exception as e:
+            raise Exception(f"Failed to generate image summary: {e}")
+
+
 
     @staticmethod
     def attachmentListMapping(attachments: list, attachment_constant: str = "attachment") -> dict:
