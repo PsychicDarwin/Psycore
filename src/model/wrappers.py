@@ -18,9 +18,12 @@ class ChatModelWrapper:
         if provider == Providers.OPENAI:
             credential = LocalCredentials.get_credential('OPENAI_API_KEY')
             self.model = ChatOpenAI(
-                model_name=model_type.argName,
-                api_key=credential.secret_key,
+                model=model_type.argName,
                 temperature=0,
+                max_tokens=None,
+                timeout=None,
+                max_retries=2,
+                api_key=credential.secret_key,
             )
         elif provider == Providers.BEDROCK:
             credential = LocalCredentials.get_credential('AWS_IAM_KEY')

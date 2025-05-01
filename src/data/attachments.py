@@ -43,7 +43,7 @@ class Attachment:
     def __init__(self, attachment_type: AttachmentTypes, attachment_data: str, needsExtraction: bool = False):
         self.attachment_type = attachment_type
         self.attachment_data = attachment_data
-        self.needsExtraction = needsExtraction
+        self.needsExtraction = needsExtraction  
         self.prompt_mapping = None # This is the mapping name, that goes through prompt template, it is defined when processed by a 
         self.metadata = None
 
@@ -128,7 +128,6 @@ class Attachment:
         except Exception as e:
             raise FailedExtraction(self, str(e))
     
-
     def _convert_audio_to_text(self):
         """Transcribes audio to text using OpenAI's Whisper."""
         if self.attachment_type != AttachmentTypes.AUDIO:
@@ -138,7 +137,7 @@ class Attachment:
             audio_filepath = self.attachment_data  # File path to the audio
 
             # Load the Whisper model
-            model = whisper.load_model("small")  # Use "medium" or "large" for better accuracy
+            model = whisper.load_model("tiny")  # Use "medium" or "large" for better accuracy
 
             # Transcribe audio
             result = model.transcribe(audio_filepath)
@@ -147,7 +146,6 @@ class Attachment:
             return result["text"]
         except Exception as e:
             raise Exception(f"Failed to transcribe audio: {e}")
-
 
     def _process_video(self):
         raise NotImplementedError("Video processing not yet implemented")
