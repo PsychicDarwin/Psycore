@@ -40,3 +40,9 @@ ffmpeg==1.4.0
 # Additional dependencies that might be needed
 python-dotenv==1.0.0  # For environment variable management
 requests==2.32.2      # Required for API calls
+
+nltk
+nltk_tokenize
+nltk_corpus
+
+openai-whisper

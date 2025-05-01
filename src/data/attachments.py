@@ -4,6 +4,14 @@ from PIL import Image
 from io import BytesIO
 from pdf2image import convert_from_path
 import ffmpeg  # Install with: pip install imageio[ffmpeg]
+import json
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+import networkx as nx
+import matplotlib.pyplot as plt
+import whisper
+
 
 MAX_LLM_IMAGE_PIXELS = 512 
 TEMPFILE = "tempfile"
@@ -65,6 +73,38 @@ class Attachment:
                 self.metadata = {"width": img.width, "height": img.height}
         except Exception as e:
             raise FailedExtraction(self, str(e))
+    
+
+    def _process_graph(prompt):
+        # Ensure necessary NLTK downloads
+
+        """Convert a string into a JSON-based knowledge graph."""
+        words = word_tokenize(prompt.lower())
+        stop_words = set(stopwords.words("english"))
+
+        # Filter meaningful words
+        key_words = [word for word in words if word.isalnum() and word not in stop_words]
+
+        # Construct graph data structure
+        graph = {
+            "nodes": [{"id": word} for word in key_words],
+            "edges": [{"source": key_words[i], "target": key_words[i + 1]} for i in range(len(key_words) - 1)]
+        }
+
+            # Create graph
+        visual_graph = nx.Graph()
+        
+        # Add words as nodes
+        for word in key_words:
+            visual_graph.add_node(word)
+
+        # Connect words based on proximity
+        for i in range(len(key_words) - 1):
+            visual_graph.add_edge(key_words[i], key_words[i + 1])
+        
+        print(prompt)
+        return json.dumps(graph, indent=4), visual_graph
+    
         
     def _process_audio(self):
         # Get file type
@@ -82,6 +122,25 @@ class Attachment:
             self.metadata = {"duration": duration}
         except Exception as e:
             raise FailedExtraction(self, str(e))
+    
+    def _convert_audio_to_text(self):
+        """Transcribes audio to text using OpenAI's Whisper."""
+        if self.attachment_type != AttachmentTypes.AUDIO:
+            raise ValueError("Audio-to-text conversion is only supported for audio attachments.")
+        
+        try:
+            audio_filepath = self.attachment_data  # File path to the audio
+
+            # Load the Whisper model
+            model = whisper.load_model("tiny")  # Use "medium" or "large" for better accuracy
+
+            # Transcribe audio
+            result = model.transcribe(audio_filepath)
+
+            self.metadata = {"transcription": result["text"]}  # Store the transcription in metadata
+            return result["text"]
+        except Exception as e:
+            raise Exception(f"Failed to transcribe audio: {e}")
 
     def _process_video(self):
         raise NotImplementedError("Video processing not yet implemented")
