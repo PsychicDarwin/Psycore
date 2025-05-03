@@ -205,42 +205,86 @@ class RAGKnowledgeGraph:
         
         return full_text_query.strip()
     
-    def structured_retrieval(self, question: str) -> str:
+    # def structured_retrieval(self, question: str) -> str:
+    #     """
+    #     Perform structured retrieval using the knowledge graph.
+        
+    #     Args:
+    #         question: Question to retrieve information for
+            
+    #     Returns:
+    #         Retrieved information as a string
+    #     """
+    #     result = ""
+        
+    #     # Extract entities from the question
+    #     entities = self.entity_extractor.extract_entities(question)
+        
+    #     # Query the knowledge graph for each entity
+    #     for entity in entities:
+    #         response = self.graph.query(
+    #             """CALL db.index.fulltext.queryNodes('entity', $query, {limit:2})
+    #             YIELD node,score
+    #             CALL {
+    #               WITH node
+    #               MATCH (node)-[r:!MENTIONS]->(neighbor)
+    #               RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS output
+    #               UNION ALL
+    #               WITH node
+    #               MATCH (node)<-[r:!MENTIONS]-(neighbor)
+    #               RETURN neighbor.id + ' - ' + type(r) + ' -> ' + node.id AS output
+    #             }
+    #             RETURN output LIMIT 50""",
+    #             {"query": self.generate_full_text_query(entity)},
+    #         )
+            
+    #         result += "\n".join([el['output'] for el in response])
+        
+    #     return result
+
+    def structured_retrieval(self, question: str) -> Dict[str, Any]:
         """
         Perform structured retrieval using the knowledge graph.
-        
         Args:
             question: Question to retrieve information for
-            
         Returns:
-            Retrieved information as a string
+            Dictionary containing formatted string + raw graph outputs
         """
-        result = ""
-        
-        # Extract entities from the question
+        structured_text = ""
+        graph_outputs = []
+
         entities = self.entity_extractor.extract_entities(question)
-        
-        # Query the knowledge graph for each entity
+
         for entity in entities:
+            if not entity.strip():
+                continue
+            query = self.generate_full_text_query(entity)
             response = self.graph.query(
                 """CALL db.index.fulltext.queryNodes('entity', $query, {limit:2})
                 YIELD node,score
                 CALL {
-                  WITH node
-                  MATCH (node)-[r:!MENTIONS]->(neighbor)
-                  RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS output
-                  UNION ALL
-                  WITH node
-                  MATCH (node)<-[r:!MENTIONS]-(neighbor)
-                  RETURN neighbor.id + ' - ' + type(r) + ' -> ' + node.id AS output
+                WITH node
+                MATCH (node)-[r:!MENTIONS]->(neighbor)
+                RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS output
+                UNION ALL
+                WITH node
+                MATCH (node)<-[r:!MENTIONS]-(neighbor)
+                RETURN neighbor.id + ' - ' + type(r) + ' -> ' + node.id AS output
                 }
                 RETURN output LIMIT 50""",
-                {"query": self.generate_full_text_query(entity)},
+                {"query": query}
             )
-            
-            result += "\n".join([el['output'] for el in response])
-        
-        return result
+
+            for el in response:
+                line = el['output']
+                structured_text += line + "\n"
+                graph_outputs.append(line)
+
+        return {
+            "structured_text": structured_text.strip(),
+            "graph_evidence": graph_outputs
+        }
+
     
     def vector_retrieval(self, question: str, k: int = 4) -> List[str]:
         """
@@ -259,31 +303,52 @@ class RAGKnowledgeGraph:
         results = self.vector_index.similarity_search(question, k=k)
         return [doc.page_content for doc in results]
     
-    def hybrid_retrieval(self, question: str, k: int = 4) -> str:
-        """
-        Perform hybrid retrieval using both structured and vector retrieval.
+    # def hybrid_retrieval(self, question: str, k: int = 4) -> str:
+    #     """
+    #     Perform hybrid retrieval using both structured and vector retrieval.
         
-        Args:
-            question: Question to retrieve information for
-            k: Number of documents to retrieve from vector search
+    #     Args:
+    #         question: Question to retrieve information for
+    #         k: Number of documents to retrieve from vector search
             
-        Returns:
-            Combined retrieval results as a string
-        """
+    #     Returns:
+    #         Combined retrieval results as a string
+    #     """
+    #     print(f"Search query: {question}")
+        
+    #     # Get structured data
+    #     structured_data = self.structured_retrieval(question)
+        
+    #     # Get unstructured data
+    #     unstructured_data = self.vector_retrieval(question, k=k)
+        
+    #     # Combine results
+    #     final_data = f"""Structured data:
+    #     {structured_data}
+        
+    #     Unstructured data:
+    #     {"#Document ". join(unstructured_data)}
+    #     """
+        
+    #     return final_data
+
+    def hybrid_retrieval(self, question: str, k: int = 4) -> Dict[str, Any]:
         print(f"Search query: {question}")
-        
-        # Get structured data
+
         structured_data = self.structured_retrieval(question)
-        
-        # Get unstructured data
-        unstructured_data = self.vector_retrieval(question, k=k)
-        
-        # Combine results
-        final_data = f"""Structured data:
-        {structured_data}
-        
+        unstructured_docs = self.vector_retrieval(question, k=k)
+
+        formatted_context = f"""Structured data:
+        {structured_data['structured_text']}
+
         Unstructured data:
-        {"#Document ". join(unstructured_data)}
+        {"#Document ".join(unstructured_docs)}
         """
-        
-        return final_data
+
+        return {
+            "context": formatted_context.strip(),
+            "graph_evidence": structured_data["graph_evidence"],
+            "documents": unstructured_docs
+        }
+
+

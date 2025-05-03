@@ -75,24 +75,47 @@ def main():
             embedding_wrapper=embedding_wrapper,
             entity_extractor=entity_extractor
         )
-        
-        # Step 6: Load and process documents
-        # pdf_path = input("Enter the path to a PDF document: ")
-        pdf_path = input("Enter the path to a PDF document: ").strip().strip("'\"")
+
+        # Ask the user whether to reuse existing graph and vector index
+        reuse_existing = input("Do you want to reuse an existing knowledge graph and vector index? (y/n): ").strip().lower() == "y"
+
+        if not reuse_existing:
+            # Step 6: Load and process documents
+            pdf_path = input("Enter the path to a PDF document: ").strip().strip("'\"")
+            document_processor = DocumentProcessor(chunk_size=512, chunk_overlap=24)
+            documents = document_processor.process_pdf(pdf_path)
+            
+            logger.info(f"Loaded and processed {len(documents)} document chunks")
+
+            # Step 7: Add documents to knowledge graph
+            logger.info("Converting documents to graph documents and adding to Neo4j...")
+            rag_kg.add_documents_to_graph(documents)
+
+            # Step 8: Create vector index
+            logger.info("Creating vector index...")
+            rag_kg.create_vector_index()
+        else:
+            logger.info("Skipping document ingestion and vector index creation.")
+            rag_kg.create_vector_index()  # still need this to initialize the wrapper
 
         
-        document_processor = DocumentProcessor(chunk_size=512, chunk_overlap=24)
-        documents = document_processor.process_pdf(pdf_path)
+        # # Step 6: Load and process documents
+        # # pdf_path = input("Enter the path to a PDF document: ")
+        # pdf_path = input("Enter the path to a PDF document: ").strip().strip("'\"")
+
         
-        logger.info(f"Loaded and processed {len(documents)} document chunks")
+        # document_processor = DocumentProcessor(chunk_size=512, chunk_overlap=24)
+        # documents = document_processor.process_pdf(pdf_path)
         
-        # Step 7: Add documents to knowledge graph
-        logger.info("Converting documents to graph documents and adding to Neo4j...")
-        rag_kg.add_documents_to_graph(documents)
+        # logger.info(f"Loaded and processed {len(documents)} document chunks")
         
-        # Step 8: Create vector index
-        logger.info("Creating vector index...")
-        rag_kg.create_vector_index()
+        # # Step 7: Add documents to knowledge graph
+        # logger.info("Converting documents to graph documents and adding to Neo4j...")
+        # rag_kg.add_documents_to_graph(documents)
+        
+        # # Step 8: Create vector index
+        # logger.info("Creating vector index...")
+        # rag_kg.create_vector_index()
         
         # Step 9: Create RAG process
         rag_process = RAGProcess(rag_kg, model_wrapper)
@@ -116,7 +139,13 @@ def main():
             })
             
             # Display the answer
+            # print(f"\nAnswer: {result['answer']}")
+
             print(f"\nAnswer: {result['answer']}")
+            print("\nGraph Evidence Used:")
+            for line in result.get("graph_evidence", []):
+                print(f"  - {line}")
+
             
             # Update chat history
             chat_history.append((question, result["answer"]))
