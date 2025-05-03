@@ -3,7 +3,7 @@ import base64
 from PIL import Image
 from io import BytesIO
 import fitz  # PyMuPDF
-import ffmpeg  # Install with: pip install imageio[ffmpeg]
+import ffmpeg  
 import json
 import nltk
 from nltk.tokenize import word_tokenize
