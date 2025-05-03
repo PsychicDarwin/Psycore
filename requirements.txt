@@ -20,8 +20,6 @@ anthropic==0.8.0
 boto3>=1.35.74  # Required for Amazon Bedrock
 ollama>=0.4.4,<1
 
-
-
 # Attachment handling
 imageio[ffmpeg]==2.37.0
 pillow==11.1.0
@@ -30,3 +28,11 @@ ffmpeg==1.4.0
 # Additional dependencies that might be needed
 python-dotenv==1.0.0  # For environment variable management
 requests==2.32.2      # Required for API calls
+
+# Captioning + Embedding + Vector DB
+torch
+transformers
+Pillow
+chromadb
+tqdm
+pymupdf
