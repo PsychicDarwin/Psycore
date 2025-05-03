@@ -141,10 +141,27 @@ def main():
             # Display the answer
             # print(f"\nAnswer: {result['answer']}")
 
+            # print(f"\nAnswer: {result['answer']}")
+            # print("\nGraph Evidence Used:")
+            # for line in result.get("graph_evidence", []):
+            #     print(f"  - {line}")
+
             print(f"\nAnswer: {result['answer']}")
+
             print("\nGraph Evidence Used:")
             for line in result.get("graph_evidence", []):
                 print(f"  - {line}")
+
+            print("\nGraph Generated from Answer:")
+            for graph_doc in result.get("answer_graph", []):
+                for node in graph_doc.nodes:
+                    print(f"  - Node: {node.id}")
+                for rel in graph_doc.relationships:
+                    source = rel.source.id if rel.source else "N/A"
+                    target = rel.target.id if rel.target else "N/A"
+                    print(f"    {source} --[{rel.type}]--> {target}")
+
+
 
             
             # Update chat history
