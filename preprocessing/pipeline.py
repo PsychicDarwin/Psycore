@@ -214,11 +214,12 @@ class PreprocessingPipeline:
         }
         
         try:
-            # Process the file using the S3Handler's process_s3_file method
-            # This will handle downloading, processing, and cleanup
-            processing_result = self.s3_handler.process_s3_file(
-                file_info,
-                lambda local_path: self.processor.process_document(local_path, file_info)
+            # Process the file using the S3Handler's download_to_temp_and_process method
+            # This will handle downloading, processing, and cleanup of temporary files
+            processing_result = self.s3_handler.download_to_temp_and_process(
+                bucket=file_info.get('Bucket', self.s3_handler.documents_bucket),
+                key=file_info['Key'],
+                process_callback=lambda local_path: self.processor.process_document(local_path, file_info)
             )
             
             # Extract document_id for subsequent operations
@@ -262,29 +263,23 @@ class PreprocessingPipeline:
             result['metadata_key'] = metadata_key
             result['metadata_uri'] = metadata_uri
             
-            # Step 4: Update DynamoDB (if available)
+            # Update DynamoDB (if available)
             if self.db_handler:
                 try:
-                    # Create document entry in DynamoDB
-                    # Note: This requires permissions for dynamodb:PutItem and other DynamoDB operations
-                    # If permissions are not set up, this will be handled gracefully as an error
                     document_s3_link = f"s3://{file_info.get('Bucket', self.s3_handler.documents_bucket)}/{file_info['Key']}"
                     
-                    # Extract metadata for DynamoDB
                     doc_metadata = {
                         'title': processing_result.get('metadata', {}).get('title', document_id),
                         'author': processing_result.get('metadata', {}).get('author', 'Unknown'),
                         'created_date': processing_result.get('metadata', {}).get('created_date', '')
                     }
                     
-                    # Create the document entry
                     db_result = self.db_handler.create_document_entry(
                         document_id=document_id,
                         document_s3_link=document_s3_link,
                         metadata=doc_metadata
                     )
                     
-                    # Update with text summary link
                     if result.get('text_uri'):
                         self.db_handler.update_document_summary(
                             document_id=document_id,
@@ -298,7 +293,6 @@ class PreprocessingPipeline:
                     logger.error(f"Failed to update DynamoDB: {e}")
                     result['dynamodb_error'] = str(e)
             
-            # Add any errors from processing
             if processing_result.get('error'):
                 result['status'] = 'partial'
                 result['error'] = processing_result['error']
