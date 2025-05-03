@@ -14,6 +14,9 @@ from chromadb.config import Settings
 from langchain_community.vectorstores import Chroma
 from langchain_core.embeddings import Embeddings
 from dotenv import load_dotenv
+import torch
+from transformers import CLIPProcessor, CLIPModel
+from PIL import Image
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +50,10 @@ class ChromaHandler:
         # Store the embedding models
         self.text_embedding_model = text_embedding_model
         self.image_embedding_model = image_embedding_model
+        
+        # Initialize CLIP model and processor
+        self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         
         # Collection names
         self.document_collection_name = "document_embeddings"
@@ -131,27 +138,23 @@ class ChromaHandler:
         if metadata is None:
             metadata = {}
         
+        # If no embedding provided, compute using CLIP
+        if embedding is None:
+            embedding = self.get_clip_text_embedding(document_text)
+        
         # Add document to collection
-        if embedding:
-            # Use provided embedding
-            collection.add(
-                ids=[document_id],
-                embeddings=[embedding],
-                metadatas=[metadata],
-                documents=[document_text]
-            )
-        else:
-            # Let ChromaDB compute embedding
-            collection.add(
-                ids=[document_id],
-                metadatas=[metadata],
-                documents=[document_text]
-            )
+        collection.add(
+            ids=[document_id],
+            embeddings=[embedding],
+            metadatas=[metadata],
+            documents=[document_text]
+        )
     
     def add_image_embedding(self, image_id: str, image_text: str,
                           document_id: str, page_number: int,
                           metadata: Dict[str, Any] = None,
-                          embedding: Optional[List[float]] = None):
+                          embedding: Optional[List[float]] = None,
+                          image_data: Optional[Union[Image.Image, BinaryIO]] = None):
         """
         Add image embedding to ChromaDB.
         
@@ -162,6 +165,7 @@ class ChromaHandler:
             page_number: Page number where the image appears
             metadata: Optional metadata about the image
             embedding: Optional pre-computed embedding vector
+            image_data: Optional image data for CLIP embedding
         """
         collection = self.get_image_collection()
         
@@ -175,22 +179,17 @@ class ChromaHandler:
             'page_number': page_number
         })
         
+        # If no embedding provided and image_data is available, compute using CLIP
+        if embedding is None and image_data is not None:
+            embedding = self.get_clip_image_embedding(image_data)
+        
         # Add image to collection
-        if embedding:
-            # Use provided embedding
-            collection.add(
-                ids=[image_id],
-                embeddings=[embedding],
-                metadatas=[metadata],
-                documents=[image_text]
-            )
-        else:
-            # Let ChromaDB compute embedding
-            collection.add(
-                ids=[image_id],
-                metadatas=[metadata],
-                documents=[image_text]
-            )
+        collection.add(
+            ids=[image_id],
+            embeddings=[embedding] if embedding else None,
+            metadatas=[metadata],
+            documents=[image_text]
+        )
     
     def add_text_chunk_embedding(self, chunk_id: str, text_chunk: str,
                                document_id: str, chunk_index: int,
@@ -530,3 +529,42 @@ class ChromaHandler:
             n_results=n_results,
             where=filter_metadata
         )
+
+    def get_clip_text_embedding(self, text: str) -> List[float]:
+        """
+        Get CLIP text embedding for a given text.
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            Normalized embedding vector
+        """
+        inputs = self.clip_processor(
+            text=[text], 
+            return_tensors="pt", 
+            padding=True, 
+            truncation=True, 
+            max_length=77
+        )
+        with torch.no_grad():
+            embedding = self.clip_model.get_text_features(**inputs)
+        return (embedding[0] / embedding.norm()).tolist()
+
+    def get_clip_image_embedding(self, image: Union[Image.Image, BinaryIO]) -> List[float]:
+        """
+        Get CLIP image embedding for a given image.
+        
+        Args:
+            image: PIL Image or binary image data
+            
+        Returns:
+            Normalized embedding vector
+        """
+        if isinstance(image, BinaryIO):
+            image = Image.open(image).convert("RGB")
+        
+        inputs = self.clip_processor(images=image, return_tensors="pt")
+        with torch.no_grad():
+            embedding = self.clip_model.get_image_features(**inputs)
+        return (embedding[0] / embedding.norm()).tolist()
