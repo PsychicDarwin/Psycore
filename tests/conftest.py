@@ -2,6 +2,8 @@ import pytest
 import os
 import boto3
 from dotenv import load_dotenv
+from unittest.mock import MagicMock
+from moto import mock_aws
 
 # Load environment variables for tests
 load_dotenv()
@@ -39,11 +41,45 @@ def pytest_configure(config):
                 allow_module_level=True
             )
 
-@pytest.fixture(scope="session")
+# Fixture for mocked AWS session (unit tests)
+@pytest.fixture
+def mock_aws_session():
+    """Mock AWS session for testing."""
+    with mock_aws():
+        yield
+
+# Fixture for mocked S3 client (unit tests)
+@pytest.fixture
+def mock_s3_client(mock_aws_session):
+    """Create a mock S3 client and test buckets."""
+    s3_client = boto3.client('s3', region_name='us-east-1')
+    
+    # Create test buckets
+    test_buckets = ['test-bucket-1', 'test-bucket-2']
+    for bucket in test_buckets:
+        s3_client.create_bucket(Bucket=bucket)
+    
+    return s3_client
+
+# Fixture for real AWS session (integration tests)
+@pytest.fixture
 def aws_session():
-    """Create a boto3 session for testing."""
-    return boto3.Session(
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-        region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
-    ) 
+    """Real AWS session for integration testing."""
+    return boto3.Session()
+
+# Fixture for test bucket names (integration tests)
+@pytest.fixture
+def bucket_names():
+    """Get bucket names from environment variables for integration testing."""
+    bucket_vars = [
+        os.getenv('PSYCORE_DOCUMENT_BUCKET'),
+        os.getenv('PSYCORE_SUMMARY_BUCKET'),
+        os.getenv('PSYCORE_IMAGE_BUCKET')
+    ]
+    return [bucket for bucket in bucket_vars if bucket]
+
+# Fixture for a single test bucket name (for simpler tests)
+@pytest.fixture
+def bucket_name(bucket_names):
+    """Get a single bucket name for simpler tests."""
+    return bucket_names[0] if bucket_names else None 

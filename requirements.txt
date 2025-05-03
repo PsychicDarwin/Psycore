@@ -1,6 +1,7 @@
 # Testing dependencies
 pytest==7.4.0
 pytest-cov==4.1.0
+moto>=4.2.13  # For mocking AWS services in tests
 
 # Core dependencies
 pydantic>=2.9.2
@@ -31,6 +32,7 @@ chromadb>=0.4.18  # Vector database for embeddings
 
 # Document processing
 pypdf>=4.0.0  # For PDF file handling
+pdf2image>=1.17.0  # For converting PDF to images
 
 # Attachment handling
 imageio[ffmpeg]==2.37.0
@@ -41,8 +43,8 @@ ffmpeg==1.4.0
 python-dotenv==1.0.0  # For environment variable management
 requests==2.32.2      # Required for API calls
 
-nltk
-nltk_tokenize
-nltk_corpus
+# NLP and Visualization
+nltk>=3.9.1  # Natural Language Toolkit (includes modules like tokenize and corpus)
+matplotlib>=3.10.0  # For plotting and visualization
 
 openai-whisper

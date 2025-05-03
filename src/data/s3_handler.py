@@ -12,6 +12,7 @@ from typing import Dict, List, Any, BinaryIO, Optional, Tuple
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 import tempfile
+from src.credential_manager.LocalCredentials import LocalCredentials
 
 # Load environment variables
 load_dotenv()
@@ -21,13 +22,22 @@ class S3Handler:
     
     def __init__(self):
         """Initialize the S3 handler."""
-        self.s3 = boto3.client('s3')
+        # Get AWS credentials
+        aws_cred = LocalCredentials.get_credential('AWS_IAM_KEY')
         
-        # Get bucket names directly from environment variables
-        self.documents_bucket = os.getenv('DOCUMENTS_BUCKET_NAME')
-        self.text_bucket = os.getenv('DOCUMENT_TEXT_BUCKET_NAME')
-        self.images_bucket = os.getenv('DOCUMENT_IMAGES_BUCKET_NAME')
-        self.graphs_bucket = os.getenv('DOCUMENT_GRAPHS_BUCKET_NAME')
+        # Set up session with credentials
+        session = boto3.Session(
+            aws_access_key_id=aws_cred.user_key,
+            aws_secret_access_key=aws_cred.secret_key,
+            region_name=LocalCredentials.get_credential('AWS_DEFAULT_REGION').secret_key
+        )
+        self.s3 = session.client('s3')
+        
+        # Get bucket names from LocalCredentials
+        self.documents_bucket = LocalCredentials.get_credential('S3_DOCUMENTS_BUCKET').secret_key
+        self.text_bucket = LocalCredentials.get_credential('S3_TEXT_BUCKET').secret_key
+        self.images_bucket = LocalCredentials.get_credential('S3_IMAGES_BUCKET').secret_key
+        self.graphs_bucket = LocalCredentials.get_credential('S3_GRAPHS_BUCKET').secret_key
     
     def upload_document(self, file_obj: BinaryIO, 
                       original_filename: str) -> Tuple[str, str]:

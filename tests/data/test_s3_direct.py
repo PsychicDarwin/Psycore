@@ -1,56 +1,59 @@
+import pytest
 import boto3
 import os
 import uuid
 from io import BytesIO
 from botocore.exceptions import ClientError
 
-# Function for direct S3 bucket access test
-def test_direct_bucket_access(bucket_name):
-    print(f"\nTesting direct access to bucket: {bucket_name}")
+@pytest.mark.integration
+def test_direct_bucket_access(aws_session, bucket_name):
+    """Test direct access to an S3 bucket using real AWS credentials."""
+    if not bucket_name:
+        pytest.skip("No bucket name provided for integration test")
     
-    # Create the S3 client
-    s3 = boto3.client('s3')
-    
-    # Create a test key
-    test_key = f"test-files/test-{uuid.uuid4()}.txt"
-    test_content = b"This is a test file"
+    s3_client = aws_session.client('s3')
+    test_key = 'test/direct_access_test.txt'
+    test_content = b'Test content for direct S3 access'
     
     try:
-        # Put an object directly
-        print(f"Putting object to {bucket_name}/{test_key}")
-        s3.put_object(
-            Bucket=bucket_name,
-            Key=test_key,
-            Body=test_content
-        )
-        print(f"✓ Successfully put object to bucket")
+        # Test put object
+        s3_client.put_object(Bucket=bucket_name, Key=test_key, Body=test_content)
+        print(f"Successfully put object in bucket {bucket_name}")
         
-        # Try to get object
-        print(f"Getting object from {bucket_name}/{test_key}")
-        response = s3.get_object(
-            Bucket=bucket_name,
-            Key=test_key
-        )
-        content = response['Body'].read()
-        if content == test_content:
-            print(f"✓ Successfully retrieved object with matching content")
-        else:
-            print(f"❌ Content mismatch!")
-            
-        # Clean up
-        print(f"Deleting test object")
-        s3.delete_object(
-            Bucket=bucket_name,
-            Key=test_key
-        )
-        print(f"✓ Successfully deleted test object")
+        # Test get object
+        response = s3_client.get_object(Bucket=bucket_name, Key=test_key)
+        retrieved_content = response['Body'].read()
+        assert retrieved_content == test_content
+        print(f"Successfully retrieved object from bucket {bucket_name}")
         
-        return True
+        # Test delete object
+        s3_client.delete_object(Bucket=bucket_name, Key=test_key)
+        print(f"Successfully deleted object from bucket {bucket_name}")
+        
     except ClientError as e:
-        error_code = e.response['Error']['Code']
-        error_message = e.response['Error']['Message']
-        print(f"❌ Error: {error_code} - {error_message}")
-        return False
+        pytest.fail(f"AWS operation failed: {str(e)}")
+
+def test_mock_bucket_access(mock_s3_client):
+    """Test S3 operations using mocked client."""
+    bucket_name = 'test-bucket-1'
+    test_key = 'test/mock_test.txt'
+    test_content = b'Test content for mocked S3'
+    
+    # Test put object
+    mock_s3_client.put_object(Bucket=bucket_name, Key=test_key, Body=test_content)
+    
+    # Test get object
+    response = mock_s3_client.get_object(Bucket=bucket_name, Key=test_key)
+    retrieved_content = response['Body'].read()
+    assert retrieved_content == test_content
+    
+    # Test delete object
+    mock_s3_client.delete_object(Bucket=bucket_name, Key=test_key)
+    
+    # Verify deletion by checking the object no longer exists
+    with pytest.raises(ClientError) as exc_info:
+        mock_s3_client.get_object(Bucket=bucket_name, Key=test_key)
+    assert exc_info.value.response['Error']['Code'] == 'NoSuchKey'
 
 if __name__ == "__main__":
     # Test all buckets from .env

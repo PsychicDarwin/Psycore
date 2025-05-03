@@ -21,16 +21,30 @@ def mock_env_vars(monkeypatch):
 @pytest.fixture
 def mock_s3_client():
     """Create a mock boto3 S3 client."""
-    with patch('boto3.client') as mock_client:
+    with patch('boto3.Session') as mock_session:
         s3_mock = MagicMock()
-        mock_client.return_value = s3_mock
+        session_instance = MagicMock()
+        session_instance.client.return_value = s3_mock
+        mock_session.return_value = session_instance
         yield s3_mock
 
 @pytest.fixture
 def s3_handler(mock_s3_client):
     """Create an S3Handler instance with mocked S3 client."""
-    handler = S3Handler()
-    return handler
+    with patch('src.credential_manager.LocalCredentials.LocalCredentials.get_credential') as mock_get_cred:
+        # Mock AWS credentials
+        mock_get_cred.side_effect = lambda x: MagicMock(
+            user_key='test-key',
+            secret_key='test-secret' if x == 'AWS_IAM_KEY' else {
+                'AWS_DEFAULT_REGION': 'us-east-1',
+                'S3_DOCUMENTS_BUCKET': 'test-documents-bucket',
+                'S3_TEXT_BUCKET': 'test-text-bucket',
+                'S3_IMAGES_BUCKET': 'test-images-bucket',
+                'S3_GRAPHS_BUCKET': 'test-graphs-bucket'
+            }.get(x, 'test-value')
+        )
+        handler = S3Handler()
+        return handler
 
 def test_init(s3_handler):
     """Test S3Handler initialization."""
