@@ -86,7 +86,7 @@ class S3Handler:
             S3 link to the uploaded text file
         """
         # Create S3 key based on file type
-        key = f"document-text/{document_id}/{file_type}.txt"
+        key = f"{document_id}/{file_type}.txt"
         
         try:
             # Upload the text content
@@ -135,7 +135,7 @@ class S3Handler:
             S3 link to the uploaded image
         """
         # Create S3 key
-        key = f"document-images/{document_id}/image{image_number}{extension}"
+        key = f"{document_id}/image{image_number}{extension}"
         
         try:
             # Upload the image
@@ -177,7 +177,7 @@ class S3Handler:
             S3 link to the graph file
         """
         # Create S3 key
-        key = f"document-graphs/{document_id}.json"
+        key = f"{document_id}/graph.json"
         
         try:
             # Upload the JSON content

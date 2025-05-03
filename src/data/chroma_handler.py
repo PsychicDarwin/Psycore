@@ -17,9 +17,74 @@ from dotenv import load_dotenv
 import torch
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
+from chromadb.api.types import EmbeddingFunction
 
 # Load environment variables
 load_dotenv()
+
+class CLIPTextEmbeddingFunction(EmbeddingFunction):
+    def __init__(self, clip_model, clip_processor):
+        self.clip_model = clip_model
+        self.clip_processor = clip_processor
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        embeddings = []
+        for text in input:
+            inputs = self.clip_processor(
+                text=[text], 
+                return_tensors="pt", 
+                padding=True, 
+                truncation=True, 
+                max_length=77
+            )
+            with torch.no_grad():
+                embedding = self.clip_model.get_text_features(**inputs)
+                embedding = embedding[0] / embedding.norm()
+                embeddings.append(embedding.tolist())
+        return embeddings
+
+class CLIPImageEmbeddingFunction(EmbeddingFunction):
+    def __init__(self, clip_model, clip_processor):
+        self.clip_model = clip_model
+        self.clip_processor = clip_processor
+
+    def __call__(self, input: List[Union[Image.Image, BinaryIO]]) -> List[List[float]]:
+        embeddings = []
+        for image in input:
+            if isinstance(image, BinaryIO):
+                image = Image.open(image).convert("RGB")
+            
+            inputs = self.clip_processor(images=image, return_tensors="pt")
+            with torch.no_grad():
+                embedding = self.clip_model.get_image_features(**inputs)
+                embedding = embedding[0] / embedding.norm()
+                embeddings.append(embedding.tolist())
+        return embeddings
+
+class MultimodalEmbeddingFunction(EmbeddingFunction):
+    def __init__(self, clip_model, clip_processor):
+        self.clip_model = clip_model
+        self.clip_processor = clip_processor
+        self.text_embedder = CLIPTextEmbeddingFunction(clip_model, clip_processor)
+        self.image_embedder = CLIPImageEmbeddingFunction(clip_model, clip_processor)
+
+    def __call__(self, input: List[Union[str, tuple[str, Union[Image.Image, BinaryIO]]]]) -> List[List[float]]:
+        embeddings = []
+        for item in input:
+            if isinstance(item, tuple):
+                # Handle multimodal input (text + image)
+                text, image = item
+                text_embedding = self.text_embedder([text])[0]
+                image_embedding = self.image_embedder([image])[0]
+                combined_embedding = text_embedding + image_embedding
+                combined_embedding = torch.tensor(combined_embedding)
+                combined_embedding = combined_embedding / combined_embedding.norm()
+                embeddings.append(combined_embedding.tolist())
+            else:
+                # Handle text-only input
+                text_embedding = self.text_embedder([item])[0]
+                embeddings.append(text_embedding)
+        return embeddings
 
 class ChromaHandler:
     """Handler for ChromaDB operations related to multimodal document embeddings."""
@@ -34,26 +99,23 @@ class ChromaHandler:
             text_embedding_model: Optional LangChain embeddings model for text
             image_embedding_model: Optional LangChain embeddings model for images
         """
-        # Get ChromaDB settings from environment variables
-        self.chroma_host = os.getenv('CHROMA_HOST', 'localhost')
-        self.chroma_port = int(os.getenv('CHROMA_PORT', '8000'))
-        
-        # Initialize ChromaDB client
+        # Initialize ChromaDB client with persistent storage
         self.client = chromadb.HttpClient(
-            host=self.chroma_host,
-            port=self.chroma_port,
+            host="13.42.151.24",
+            port=8000,
             settings=Settings(
                 anonymized_telemetry=False
             )
         )
         
-        # Store the embedding models
-        self.text_embedding_model = text_embedding_model
-        self.image_embedding_model = image_embedding_model
-        
-        # Initialize CLIP model and processor
+        # Initialize CLIP model and processor for multimodal embeddings
         self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        
+        # Set up the embedding functions
+        self.text_embedding_function = CLIPTextEmbeddingFunction(self.clip_model, self.clip_processor)
+        self.image_embedding_function = CLIPImageEmbeddingFunction(self.clip_model, self.clip_processor)
+        self.multimodal_embedding_function = MultimodalEmbeddingFunction(self.clip_model, self.clip_processor)
         
         # Collection names
         self.document_collection_name = "document_embeddings"
@@ -67,27 +129,62 @@ class ChromaHandler:
     def _init_collections(self):
         """Initialize ChromaDB collections if they don't exist."""
         try:
-            # Get existing collections
+            # Get embedding dimension from CLIP model
+            # CLIP base model has 512 dimensions for text and 512 for images
+            # For multimodal, we'll concatenate them to get 1024 dimensions
+            text_dimension = 512
+            image_dimension = 512
+            multimodal_dimension = text_dimension + image_dimension
+            
+            # Delete all vectors and then destroy existing collections
             existing_collections = [c.name for c in self.client.list_collections()]
+            for collection_name in [self.document_collection_name, 
+                                 self.image_collection_name, 
+                                 self.text_collection_name, 
+                                 self.multimodal_collection_name]:
+                if collection_name in existing_collections:
+                    collection = self.client.get_collection(collection_name)
+                    # Delete all vectors in the collection
+                    collection.delete(where={"document_id": {"$ne": ""}})
+                    # Delete the collection
+                    self.client.delete_collection(collection_name)
             
-            # Create document embeddings collection if it doesn't exist
-            if self.document_collection_name not in existing_collections:
-                self.client.create_collection(self.document_collection_name)
+            # Create collections with proper metadata and embedding function
+            self.client.create_collection(
+                name=self.document_collection_name,
+                metadata={
+                    "hnsw:space": "cosine",
+                    "dimension": text_dimension
+                },
+                embedding_function=self.text_embedding_function
+            )
             
-            # Create image embeddings collection if it doesn't exist
-            if self.image_collection_name not in existing_collections:
-                self.client.create_collection(self.image_collection_name)
+            self.client.create_collection(
+                name=self.image_collection_name,
+                metadata={
+                    "hnsw:space": "cosine",
+                    "dimension": image_dimension
+                },
+                embedding_function=self.image_embedding_function
+            )
             
-            # Create text embeddings collection if it doesn't exist
-            if self.text_collection_name not in existing_collections:
-                self.client.create_collection(self.text_collection_name)
-                
-            # Create multimodal embeddings collection if it doesn't exist
-            if self.multimodal_collection_name not in existing_collections:
-                self.client.create_collection(
-                    name=self.multimodal_collection_name,
-                    metadata={"hnsw:space": "cosine"}  # Optimized for multimodal embeddings
-                )
+            self.client.create_collection(
+                name=self.text_collection_name,
+                metadata={
+                    "hnsw:space": "cosine",
+                    "dimension": text_dimension
+                },
+                embedding_function=self.text_embedding_function
+            )
+            
+            self.client.create_collection(
+                name=self.multimodal_collection_name,
+                metadata={
+                    "hnsw:space": "cosine",
+                    "dimension": multimodal_dimension
+                },
+                embedding_function=self.multimodal_embedding_function
+            )
         
         except Exception as e:
             print(f"Error initializing ChromaDB collections: {e}")
@@ -141,6 +238,12 @@ class ChromaHandler:
         # If no embedding provided, compute using CLIP
         if embedding is None:
             embedding = self.get_clip_text_embedding(document_text)
+        
+        # Ensure embedding is flattened to the correct dimension
+        if isinstance(embedding, torch.Tensor):
+            embedding = embedding.flatten().tolist()
+        elif isinstance(embedding, list) and len(embedding) > 0 and isinstance(embedding[0], torch.Tensor):
+            embedding = [e.flatten().tolist() for e in embedding]
         
         # Add document to collection
         collection.add(
@@ -331,13 +434,13 @@ class ChromaHandler:
         Returns:
             LangChain Chroma vectorstore
         """
-        if self.text_embedding_model is None:
-            raise ValueError("No embedding model provided for LangChain integration")
+        if self.text_embedding_function is None:
+            raise ValueError("No embedding function provided for LangChain integration")
         
         return Chroma(
             client=self.client,
             collection_name=collection_name,
-            embedding_function=self.text_embedding_model
+            embedding_function=self.text_embedding_function
         )
     
     def get_document_vectorstore(self) -> Chroma:
@@ -383,8 +486,8 @@ class ChromaHandler:
         Returns:
             LangChain Chroma vectorstore for multimodal data
         """
-        if self.text_embedding_model is None:
-            raise ValueError("No text embedding model provided for LangChain integration")
+        if self.multimodal_embedding_function is None:
+            raise ValueError("No multimodal embedding function provided for LangChain integration")
         
         return self.get_langchain_vectorstore(self.multimodal_collection_name)
     
@@ -403,8 +506,8 @@ class ChromaHandler:
             text_description: Optional text description of the image
             metadata: Optional metadata about the image
         """
-        if self.image_embedding_model is None:
-            raise ValueError("No image embedding model provided for image embedding")
+        if self.image_embedding_function is None:
+            raise ValueError("No image embedding function provided for image embedding")
             
         collection = self.get_image_collection()
         
@@ -436,8 +539,8 @@ class ChromaHandler:
             documents=[text_description if text_description else f"Image from document {document_id}, page {page_number}"]
         )
         
-        # Also add to multimodal collection if we have both embedding models
-        if self.text_embedding_model and self.image_embedding_model:
+        # Also add to multimodal collection if we have both embedding functions
+        if self.text_embedding_function and self.image_embedding_function:
             multimodal_collection = self.get_multimodal_collection()
             
             # Combine text description with image data
@@ -461,9 +564,6 @@ class ChromaHandler:
             document_id: Optional parent document identifier
             metadata: Optional metadata
         """
-        if self.text_embedding_model is None:
-            raise ValueError("No text embedding model provided for multimodal embedding")
-            
         collection = self.get_multimodal_collection()
         
         # If no metadata provided, initialize empty dict
@@ -477,12 +577,17 @@ class ChromaHandler:
         # Set content type in metadata
         if image_binary:
             metadata['content_type'] = 'multimodal'
+            # Get multimodal embedding
+            embedding = self.get_multimodal_embedding(text_content, image_binary)
         else:
             metadata['content_type'] = 'text'
+            # If no image, just use text embedding
+            embedding = self.get_clip_text_embedding(text_content)
         
         # Store in the collection
         collection.add(
             ids=[item_id],
+            embeddings=[embedding],
             metadatas=[metadata],
             documents=[text_content]
         )
@@ -523,48 +628,27 @@ class ChromaHandler:
         """
         collection = self.get_multimodal_collection()
         
-        # Perform search
+        # Get query embedding
+        if query_image:
+            query_embedding = self.get_multimodal_embedding(query_text, query_image)
+        else:
+            query_embedding = self.get_clip_text_embedding(query_text)
+        
+        # Perform search using the embedding
         return collection.query(
-            query_texts=[query_text],
+            query_embeddings=[query_embedding],
             n_results=n_results,
             where=filter_metadata
         )
 
     def get_clip_text_embedding(self, text: str) -> List[float]:
-        """
-        Get CLIP text embedding for a given text.
-        
-        Args:
-            text: Text to embed
-            
-        Returns:
-            Normalized embedding vector
-        """
-        inputs = self.clip_processor(
-            text=[text], 
-            return_tensors="pt", 
-            padding=True, 
-            truncation=True, 
-            max_length=77
-        )
-        with torch.no_grad():
-            embedding = self.clip_model.get_text_features(**inputs)
-        return (embedding[0] / embedding.norm()).tolist()
+        """Get CLIP text embedding for a given text."""
+        return self.text_embedding_function([text])[0]
 
     def get_clip_image_embedding(self, image: Union[Image.Image, BinaryIO]) -> List[float]:
-        """
-        Get CLIP image embedding for a given image.
-        
-        Args:
-            image: PIL Image or binary image data
-            
-        Returns:
-            Normalized embedding vector
-        """
-        if isinstance(image, BinaryIO):
-            image = Image.open(image).convert("RGB")
-        
-        inputs = self.clip_processor(images=image, return_tensors="pt")
-        with torch.no_grad():
-            embedding = self.clip_model.get_image_features(**inputs)
-        return (embedding[0] / embedding.norm()).tolist()
+        """Get CLIP image embedding for a given image."""
+        return self.image_embedding_function([image])[0]
+
+    def get_multimodal_embedding(self, text: str, image: Union[Image.Image, BinaryIO]) -> List[float]:
+        """Get multimodal embedding by combining text and image features."""
+        return self.multimodal_embedding_function([(text, image)])[0]

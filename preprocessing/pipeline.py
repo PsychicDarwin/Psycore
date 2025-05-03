@@ -18,6 +18,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from preprocessing.processor import DocumentProcessor
 from src.data.s3_handler import S3Handler
+from src.data.chroma_handler import ChromaHandler
+from transformers import CLIPProcessor, CLIPModel
+import torch
 
 try:
     from src.data.db_handler import DynamoHandler
@@ -36,6 +39,9 @@ class PreprocessingPipeline:
         """Initialize the preprocessing pipeline."""
         self.s3_handler = S3Handler()
         self.processor = DocumentProcessor()
+        
+        # Initialize ChromaDB handler
+        self.chroma_handler = ChromaHandler()
         
         # Initialize DynamoDB handler if available
         self.db_handler = None
@@ -186,6 +192,19 @@ class PreprocessingPipeline:
                         )
                         deleted_count += 1
             
+            # Also clean ChromaDB collections
+            try:
+                # Get all collections
+                collections = self.chroma_handler.client.list_collections()
+                
+                # Delete all items from each collection
+                for collection in collections:
+                    # Delete all items by using a where clause that matches all documents
+                    collection.delete(where={"document_id": {"$ne": ""}})
+                    logger.info(f"Cleaned ChromaDB collection: {collection.name}")
+            except Exception as e:
+                logger.error(f"Error cleaning ChromaDB collections: {e}")
+            
             logger.info(f"Deleted {deleted_count} objects from {bucket_name}")
             return deleted_count
         except Exception as e:
@@ -234,64 +253,128 @@ class PreprocessingPipeline:
                 text_key = f"document-text/{document_id}/main.txt"
                 result['text_key'] = text_key
                 result['text_uri'] = text_uri
+                
+                # Add text embedding to ChromaDB
+                try:
+                    # Get CLIP text embedding
+                    inputs = self.chroma_handler.clip_processor(
+                        text=[processing_result['text_content']], 
+                        return_tensors="pt", 
+                        padding=True, 
+                        truncation=True, 
+                        max_length=77
+                    )
+                    with torch.no_grad():
+                        embedding = self.chroma_handler.clip_model.get_text_features(**inputs)
+                    embedding = (embedding[0] / embedding.norm()).tolist()
+                    
+                    # Add to ChromaDB
+                    self.chroma_handler.add_multimodal_item(
+                        item_id=document_id,
+                        text_content=processing_result['text_content'],
+                        document_id=document_id,
+                        metadata=processing_result.get('metadata', {})
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to add text embedding to ChromaDB: {e}")
+            
+            # Handle images if available
+            if processing_result.get('images'):
+                for img_info in processing_result['images']:
+                    try:
+                        # Get image data
+                        image_data = img_info.get('image_data')
+                        if image_data:
+                            # Get CLIP image embedding
+                            inputs = self.chroma_handler.clip_processor(images=image_data, return_tensors="pt")
+                            with torch.no_grad():
+                                embedding = self.chroma_handler.clip_model.get_image_features(**inputs)
+                            embedding = (embedding[0] / embedding.norm()).tolist()
+                            
+                            # Add to ChromaDB
+                            self.chroma_handler.add_image_embedding(
+                                image_id=f"{document_id}_img_{img_info.get('page_number', 0)}",
+                                image_text=img_info.get('text_content', ''),
+                                document_id=document_id,
+                                page_number=img_info.get('page_number', 0),
+                                metadata=img_info.get('metadata', {}),
+                                embedding=embedding,
+                                image_data=image_data
+                            )
+                            
+                            # Upload image to S3
+                            image_uri = self.s3_handler.upload_image(
+                                document_id=document_id,
+                                image_data=image_data,
+                                image_number=img_info.get('page_number', 0)
+                            )
+                            
+                            # Upload image text if available
+                            if img_info.get('text_content'):
+                                self.s3_handler.upload_image_text(
+                                    document_id=document_id,
+                                    text_content=img_info['text_content'],
+                                    image_number=img_info.get('page_number', 0)
+                                )
+                    except Exception as e:
+                        logger.error(f"Failed to process image: {e}")
+            
+            # Handle graph if available
+            if processing_result.get('graph_data'):
+                try:
+                    # Upload graph to dedicated graph bucket
+                    graph_uri = self.s3_handler.upload_graph(
+                        document_id=document_id,
+                        graph_json=json.dumps(processing_result['graph_data'])
+                    )
+                    result['graph_uri'] = graph_uri
+                except Exception as e:
+                    logger.error(f"Failed to upload graph: {e}")
             
             # Upload metadata
             metadata = {
                 'document_id': document_id,
-                'original_key': file_info['Key'],
-                'original_bucket': file_info.get('Bucket'),
-                'file_type': processing_result.get('file_type', ''),
-                'page_count': processing_result.get('page_count', 0),
-                'metadata': processing_result.get('metadata', {}),
-                'processing_time': time.time(),
-                'status': 'success' if not processing_result.get('error') else 'error',
-                'error': processing_result.get('error')
+                'original_filename': file_info['Key'].split('/')[-1],
+                'processing_status': 'success',
+                'processing_timestamp': str(time.time()),
+                'text_uri': result.get('text_uri'),
+                'graph_uri': result.get('graph_uri')
             }
             
-            metadata_json = json.dumps(metadata, indent=2)
-            metadata_key = f"document-text/{document_id}/{document_id}_metadata.json"
-            
-            # Use the s3_handler to upload metadata
-            self.s3_handler.s3.put_object(
-                Bucket=self.s3_handler.text_bucket,
-                Key=metadata_key,
-                Body=metadata_json.encode('utf-8'),
-                ContentType='application/json'
+            metadata_uri = self.s3_handler.upload_document_text(
+                document_id=document_id,
+                text_content=json.dumps(metadata),
+                file_type="metadata"
             )
-            
-            metadata_uri = f"s3://{self.s3_handler.text_bucket}/{metadata_key}"
+            metadata_key = f"document-text/{document_id}/metadata.json"
             result['metadata_key'] = metadata_key
             result['metadata_uri'] = metadata_uri
             
-            # Update DynamoDB (if available)
+            # Update DynamoDB if available
             if self.db_handler:
                 try:
-                    document_s3_link = f"s3://{file_info.get('Bucket', self.s3_handler.documents_bucket)}/{file_info['Key']}"
-                    
-                    doc_metadata = {
-                        'title': processing_result.get('metadata', {}).get('title', document_id),
-                        'author': processing_result.get('metadata', {}).get('author', 'Unknown'),
-                        'created_date': processing_result.get('metadata', {}).get('created_date', '')
-                    }
-                    
-                    db_result = self.db_handler.create_document_entry(
+                    # Create or update document entry
+                    self.db_handler.create_document_entry(
                         document_id=document_id,
-                        document_s3_link=document_s3_link,
-                        metadata=doc_metadata
+                        document_s3_link=file_info.get('S3Uri', ''),
+                        metadata=metadata
                     )
                     
+                    # Update with text summary if available
                     if result.get('text_uri'):
                         self.db_handler.update_document_summary(
                             document_id=document_id,
                             text_summary_s3_link=result['text_uri']
                         )
                     
-                    logger.info(f"Added document to DynamoDB: {document_id}")
-                    result['dynamodb_entry'] = True
-                    
+                    # Update with graph if available
+                    if result.get('graph_uri'):
+                        self.db_handler.update_document_graph(
+                            document_id=document_id,
+                            graph_s3_link=result['graph_uri']
+                        )
                 except Exception as e:
                     logger.error(f"Failed to update DynamoDB: {e}")
-                    result['dynamodb_error'] = str(e)
             
             if processing_result.get('error'):
                 result['status'] = 'partial'
