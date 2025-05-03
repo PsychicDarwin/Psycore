@@ -32,3 +32,16 @@ LocalCredentials.add_credential('OPENAI_API_KEY', os.getenv('OPENAI_API_KEY'))
 LocalCredentials.add_credential('AWS_IAM_KEY', os.getenv('AWS_SECRET_ACCESS_KEY'), os.getenv('AWS_ACCESS_KEY_ID'))
 LocalCredentials.add_credential('GEMINI_API_KEY', os.getenv('GEMINI_API_KEY'))
 LocalCredentials.add_credential('XAI_API_KEY', os.getenv('XAI_API_KEY'))
+
+# Add S3 bucket names as individual credentials
+account_id = os.getenv('AWS_ACCOUNT_ID', 'default')
+LocalCredentials.add_credential('S3_DOCUMENTS_BUCKET', os.getenv('S3_DOCUMENTS_BUCKET', 'test-documents-bucket'))
+LocalCredentials.add_credential('S3_TEXT_BUCKET', os.getenv('S3_TEXT_BUCKET', 'test-text-bucket'))
+LocalCredentials.add_credential('S3_IMAGES_BUCKET', os.getenv('S3_IMAGES_BUCKET', 'test-images-bucket'))
+LocalCredentials.add_credential('S3_GRAPHS_BUCKET', os.getenv('S3_GRAPHS_BUCKET', 'test-graphs-bucket'))
+
+# Add AWS region
+LocalCredentials.add_credential('AWS_DEFAULT_REGION', os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
+
+# Add DynamoDB table name
+LocalCredentials.add_credential('DYNAMODB_TABLE', os.getenv('DYNAMODB_DOCUMENT_RELATIONSHIPS_TABLE'))

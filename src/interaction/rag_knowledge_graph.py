@@ -11,6 +11,7 @@ from src.model.wrappers import ChatModelWrapper, EmbeddingWrapper
 from src.model.model_catalogue import ModelType, EmbeddingType
 from src.interaction.knowledge_graphs import ModelKGTransformer
 from src.interaction.entity_extraction import EntityExtractor
+from src.credential_manager.LocalCredentials import LocalCredentials
 
 class RAGKnowledgeGraph:
     """
@@ -19,9 +20,6 @@ class RAGKnowledgeGraph:
     
     def __init__(
         self, 
-        neo4j_uri: str = "bolt://localhost:7687",
-        neo4j_username: str = "neo4j",
-        neo4j_password: str = "password",
         model_wrapper: Optional[ChatModelWrapper] = None,
         embedding_wrapper: Optional[EmbeddingWrapper] = None,
         entity_extractor: Optional[EntityExtractor] = None
@@ -38,15 +36,16 @@ class RAGKnowledgeGraph:
             entity_extractor: EntityExtractor instance for entity extraction
         """
         # Set Neo4j connection parameters
-        self.neo4j_uri = neo4j_uri
-        self.neo4j_username = neo4j_username
-        self.neo4j_password = neo4j_password
+        self.neo4j_uri = LocalCredentials.get_credential('NEO4J_URI').secret_key
+        neo4j_credentials = LocalCredentials.get_credential('NEO4J_CREDENTIALS')
+        self.neo4j_username = neo4j_credentials.user_key
+        self.neo4j_password = neo4j_credentials.secret_key
         
         # Initialize Neo4j graph
         self.graph = Neo4jGraph(
-            url=neo4j_uri,
-            username=neo4j_username,
-            password=neo4j_password
+            url=self.neo4j_uri,
+            username=self.neo4j_username,
+            password=self.neo4j_password
         )
         
         # Set model and embedding wrappers
@@ -77,9 +76,6 @@ class RAGKnowledgeGraph:
         Args:
             model_type: ModelType instance
             embedding_type: EmbeddingType instance
-            neo4j_uri: URI for Neo4j connection
-            neo4j_username: Username for Neo4j connection
-            neo4j_password: Password for Neo4j connection
             
         Returns:
             RAGKnowledgeGraph instance
