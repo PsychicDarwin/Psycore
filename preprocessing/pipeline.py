@@ -256,23 +256,9 @@ class PreprocessingPipeline:
                 
                 # Add text embedding to ChromaDB
                 try:
-                    # Get CLIP text embedding
-                    inputs = self.chroma_handler.clip_processor(
-                        text=[processing_result['text_content']], 
-                        return_tensors="pt", 
-                        padding=True, 
-                        truncation=True, 
-                        max_length=77
-                    )
-                    with torch.no_grad():
-                        embedding = self.chroma_handler.clip_model.get_text_features(**inputs)
-                    embedding = (embedding[0] / embedding.norm()).tolist()
-                    
-                    # Add to ChromaDB
-                    self.chroma_handler.add_multimodal_item(
-                        item_id=document_id,
-                        text_content=processing_result['text_content'],
-                        document_id=document_id,
+                    # Use ChromaDB handler's prepare_text_embedding method
+                    self.chroma_handler.prepare_text_embedding(
+                        text=processing_result['text_content'],
                         metadata=processing_result.get('metadata', {})
                     )
                 except Exception as e:
@@ -285,21 +271,12 @@ class PreprocessingPipeline:
                         # Get image data
                         image_data = img_info.get('image_data')
                         if image_data:
-                            # Get CLIP image embedding
-                            inputs = self.chroma_handler.clip_processor(images=image_data, return_tensors="pt")
-                            with torch.no_grad():
-                                embedding = self.chroma_handler.clip_model.get_image_features(**inputs)
-                            embedding = (embedding[0] / embedding.norm()).tolist()
-                            
-                            # Add to ChromaDB
-                            self.chroma_handler.add_image_embedding(
-                                image_id=f"{document_id}_img_{img_info.get('page_number', 0)}",
-                                image_text=img_info.get('text_content', ''),
-                                document_id=document_id,
-                                page_number=img_info.get('page_number', 0),
+                            # Use ChromaDB handler's prepare_image_embedding method
+                            self.chroma_handler.prepare_image_embedding(
+                                image=image_data,
                                 metadata=img_info.get('metadata', {}),
-                                embedding=embedding,
-                                image_data=image_data
+                                document_data=[img_info.get('text_content', '')],
+                                id=[f"{document_id}_img_{img_info.get('page_number', 0)}"]
                             )
                             
                             # Upload image to S3
