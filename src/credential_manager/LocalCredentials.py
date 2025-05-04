@@ -1,3 +1,4 @@
+
 import os
 from dotenv import load_dotenv
 
@@ -48,4 +49,4 @@ LocalCredentials.add_credential('DYNAMODB_DOCUMENT_RELATIONSHIPS_TABLE', os.gete
 
 # ChromaDB Configuration
 LocalCredentials.add_credential('CHROMADB_HOST', os.getenv('CHROMADB_HOST', '13.42.151.24'))
-LocalCredentials.add_credential('CHROMADB_PORT', os.getenv('CHROMADB_PORT', '8000'))
+LocalCredentials.add_credential('CHROMADB_PORT', os.getenv('CHROMADB_PORT', 8000))
