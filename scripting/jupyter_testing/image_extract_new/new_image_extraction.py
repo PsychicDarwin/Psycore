@@ -14,6 +14,8 @@ Hard-wired paths:
 import sys
 from pathlib import Path
 from typing import List, Dict
+from PIL import Image
+import io
 
 # ── third-party
 try:
@@ -30,12 +32,11 @@ except ImportError:                          # fallback if tqdm not installed
 # ───────────────────────────────────────────────────────────────────────────────
 # USER SETTINGS
 # ───────────────────────────────────────────────────────────────────────────────
-INPUT_PDF  = Path("/Users/arun/Desktop/Darwin/Psycore/scripting/jupyter_testing/BDUK_Annual_Reports-Accounts_2024_-_Certified_copy.pdf")
+INPUT_PDF  = Path("22-036458-01_GIS_early_process_evaluation_Accessible_CLIENT_USE.pdf")
 
-OUTPUT_DIR = Path("/Users/arun/Desktop/Darwin/Psycore/scripting/jupyter_testing/"
-                  "image_extract_new/figures")
+OUTPUT_DIR = Path("figures")
 
-VECTOR_PDF    = True          # True ➜ export cropped PDFs  ·  False ➜ PNGs
+VECTOR_PDF    = False         # True ➜ export cropped PDFs  ·  False ➜ PNGs
 DPI           = 300           # raster DPI (PNG mode only)
 MIN_OBJECTS   = 15            # cluster dismissal threshold
 MARGIN_PT     = 3.0           # white-space added round graphic
@@ -143,9 +144,18 @@ def extract_figures(pdf: Path, out_dir: Path) -> int:
                 zoom = DPI / 72.0
                 pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom),
                                       clip=bbox, alpha=False)
-                fname = f"p{pno+1:03d}_fig{counter+1:02d}.png"
-                pix.save(out_dir / fname)
-
+                
+                # fname = f"p{pno+1:03d}_fig{counter+1:02d}.png"
+                # pix.save(out_dir / fname)
+                
+                # Convert PyMuPDF pixmap to PIL Image    
+                img_data = pix.tobytes("ppm")
+                img = Image.open(io.BytesIO(img_data))
+                
+                # Save as JPEG with appropriate quality
+                fname = f"p{pno+1:03d}_fig{counter+1:02d}.jpg"
+                img.convert("RGB").save(out_dir / fname, "JPEG", quality=90)
+    
             counter += 1
 
     return counter
