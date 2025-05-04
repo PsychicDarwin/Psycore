@@ -13,6 +13,73 @@ from src.flow.processflow import ProcessFlow
 from src.model.wrappers import ChatModelWrapper
 from src.interaction.rag_knowledge_graph import RAGKnowledgeGraph
 
+def parse_graph_evidence_to_normalized_json(evidence: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    nodes = set()
+    relationships = []
+
+    for line in evidence:
+        if '->' not in line or ' - ' not in line:
+            continue
+
+        try:
+            parts = line.split('->')
+            left = parts[0].strip()
+            right = parts[1].strip()
+
+            source, relation = left.rsplit(' - ', 1)
+            source = source.strip()
+            relation = relation.strip().upper().replace(" ", "_")
+            target = right.strip()
+
+            if source and relation and target:
+                nodes.add(source)
+                nodes.add(target)
+                relationships.append({
+                    "source": source,
+                    "target": target,
+                    "type": relation
+                })
+        except Exception:
+            continue
+
+    return {
+        "nodes": [{"id": n} for n in sorted(nodes)],
+        "relationships": relationships
+    }
+
+def strip_node_types_from_answer_graph(answer_graph_docs):
+    """
+    Converts graph documents to JSON format excluding node types from nodes.
+
+    Args:
+        answer_graph_docs: List of GraphDocument objects.
+
+    Returns:
+        Dict with 'nodes' and 'relationships' where nodes only include 'id'.
+    """
+    nodes = set()
+    relationships = []
+
+    for graph_doc in answer_graph_docs:
+        for rel in graph_doc.relationships:
+            source_id = rel.source.id if rel.source else "Unknown"
+            target_id = rel.target.id if rel.target else "Unknown"
+            rel_type = rel.type
+
+            nodes.add(source_id)
+            nodes.add(target_id)
+
+            relationships.append({
+                "source": source_id,
+                "target": target_id,
+                "type": rel_type
+            })
+
+    return {
+        "nodes": [{"id": node_id} for node_id in sorted(nodes)],
+        "relationships": relationships
+    }
+
 class RAGProcess(ProcessFlow):
     """
     A process flow for RAG with knowledge graph.
@@ -263,6 +330,50 @@ class RAGProcess(ProcessFlow):
     #     return output
 
 
+    # def run(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    #     """
+    #     Run the RAG process.
+
+    #     Args:
+    #         data: Input data containing at least a "question" key
+
+    #     Returns:
+    #         Dictionary containing the answer, graph evidence, and graph from answer
+    #     """
+    #     if "question" not in data:
+    #         raise ValueError("Input data must contain a 'question' key")
+
+    #     # Get retrieval context and evidence
+    #     retrieval_output = self.rag_kg.hybrid_retrieval(data["question"])
+    #     data["context"] = retrieval_output["context"]
+
+    #     # Invoke LLM to get the answer
+    #     answer = self.qa_chain.invoke(data)
+
+    #     # Step: Generate a graph structure from the LLM answer
+    #     self.rag_kg._ensure_graph_transformer()
+    #     answer_doc = Document(page_content=answer)
+    #     answer_graph = self.rag_kg.graph_transformer.convert_to_graph_documents([answer_doc])
+
+    #     output = {
+    #         "question": data["question"],
+    #         "answer": answer,
+    #         "graph_evidence": retrieval_output["graph_evidence"],
+    #         "documents": retrieval_output["documents"],
+    #         "answer_graph": answer_graph  # new field
+    #     }
+
+    #     if "chat_history" in data:
+    #         output["chat_history"] = data["chat_history"]
+
+    #     if self.next is not None:
+    #         return self.next.run(output)
+
+    #     return output
+
+    
+
+
     def run(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run the RAG process.
@@ -271,7 +382,8 @@ class RAGProcess(ProcessFlow):
             data: Input data containing at least a "question" key
 
         Returns:
-            Dictionary containing the answer, graph evidence, and graph from answer
+            Dictionary containing the answer, graph evidence, documents, 
+            answer graph (as objects), and answer graph (as JSON)
         """
         if "question" not in data:
             raise ValueError("Input data must contain a 'question' key")
@@ -280,20 +392,27 @@ class RAGProcess(ProcessFlow):
         retrieval_output = self.rag_kg.hybrid_retrieval(data["question"])
         data["context"] = retrieval_output["context"]
 
+        structured_graph = parse_graph_evidence_to_normalized_json(retrieval_output["graph_evidence"])
+
+
         # Invoke LLM to get the answer
         answer = self.qa_chain.invoke(data)
 
         # Step: Generate a graph structure from the LLM answer
         self.rag_kg._ensure_graph_transformer()
         answer_doc = Document(page_content=answer)
-        answer_graph = self.rag_kg.graph_transformer.convert_to_graph_documents([answer_doc])
+        answer_graph_docs = self.rag_kg.graph_transformer.convert_to_graph_documents([answer_doc])
+        # answer_graph_json = self.rag_kg.graph_docs_to_json(answer_graph_docs)
+        answer_graph_json = strip_node_types_from_answer_graph(answer_graph_docs)
 
         output = {
             "question": data["question"],
             "answer": answer,
             "graph_evidence": retrieval_output["graph_evidence"],
+            "graph_evidence_json": structured_graph,
             "documents": retrieval_output["documents"],
-            "answer_graph": answer_graph  # new field
+            "answer_graph": answer_graph_docs,        # GraphDocument objects
+            "answer_graph_json": answer_graph_json    # JSON-serializable version
         }
 
         if "chat_history" in data:
@@ -303,5 +422,6 @@ class RAGProcess(ProcessFlow):
             return self.next.run(output)
 
         return output
-
+    
+    
 
