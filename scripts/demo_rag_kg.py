@@ -5,6 +5,7 @@ import os
 import sys
 import logging
 from dotenv import load_dotenv
+import json
 
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -98,24 +99,7 @@ def main():
             logger.info("Skipping document ingestion and vector index creation.")
             rag_kg.create_vector_index()  # still need this to initialize the wrapper
 
-        
-        # # Step 6: Load and process documents
-        # # pdf_path = input("Enter the path to a PDF document: ")
-        # pdf_path = input("Enter the path to a PDF document: ").strip().strip("'\"")
-
-        
-        # document_processor = DocumentProcessor(chunk_size=512, chunk_overlap=24)
-        # documents = document_processor.process_pdf(pdf_path)
-        
-        # logger.info(f"Loaded and processed {len(documents)} document chunks")
-        
-        # # Step 7: Add documents to knowledge graph
-        # logger.info("Converting documents to graph documents and adding to Neo4j...")
-        # rag_kg.add_documents_to_graph(documents)
-        
-        # # Step 8: Create vector index
-        # logger.info("Creating vector index...")
-        # rag_kg.create_vector_index()
+    
         
         # Step 9: Create RAG process
         rag_process = RAGProcess(rag_kg, model_wrapper)
@@ -138,20 +122,24 @@ def main():
                 "chat_history": chat_history
             })
             
-            # Display the answer
-            # print(f"\nAnswer: {result['answer']}")
 
-            # print(f"\nAnswer: {result['answer']}")
-            # print("\nGraph Evidence Used:")
-            # for line in result.get("graph_evidence", []):
-            #     print(f"  - {line}")
 
             print(f"\nAnswer: {result['answer']}")
 
+            # Pretty print evidence graph as JSON
             print("\nGraph Evidence Used:")
             for line in result.get("graph_evidence", []):
                 print(f"  - {line}")
 
+            graph_json = result.get("graph_evidence_json", {})
+            if graph_json.get("nodes") or graph_json.get("relationships"):
+                print("\nGraph Evidence Used (JSON View):")
+                print(json.dumps(graph_json, indent=2))
+            else:
+                print("\nGraph Evidence Used (JSON View): No structured graph evidence found.")
+
+
+            # Answer-generated graph print
             print("\nGraph Generated from Answer:")
             for graph_doc in result.get("answer_graph", []):
                 for node in graph_doc.nodes:
@@ -161,9 +149,9 @@ def main():
                     target = rel.target.id if rel.target else "N/A"
                     print(f"    {source} --[{rel.type}]--> {target}")
 
+            print("\nGraph Generated from Answer (JSON View):")
+            print(json.dumps(result["answer_graph_json"], indent=2))
 
-
-            
             # Update chat history
             chat_history.append((question, result["answer"]))
             
